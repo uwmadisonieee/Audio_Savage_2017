@@ -2,20 +2,21 @@
 
 pthread_t server_thread;
 
+static int status; // used to check status of c functions return values
+
 int httpServer(http_t *http) {
 
-  int status;
-  char* test = "test";
-
-  http->port = 8000;
+  if (http->port <= 1024 || http->port >= 65536) {
+    printf("Port must be between 1024 and 65536\n");
+    return -1;
+  }
   
   status = pthread_create(&server_thread,
 			  NULL,
 			  httpDaemon,
 			  (void *)http);
-
-  http->response(test);
   
+  // Daemon tread_create status is what determines success
   return status;
 }
 
@@ -25,17 +26,16 @@ void* httpDaemon(void *config) {
   //         Variable Setup         //
   //--------------------------------//
   
-  int status; // used to check status of c functions return values
   int port = ((http_t*)config)->port;
 
-  char* msg_receive = malloc(sizeof(char) * 4096); //4096 char max for data
-  int msg_size;
-  char* msg_callback = malloc(sizeof(char) * 4096);
-  char* msg_return = malloc(sizeof(char) * 131072);
+  char* msg_receive = malloc(MAX_HTTP_SIZE);
+  int   msg_size;
+  char* msg_callback = malloc(MAX_HTTP_SIZE);
+  char* msg_return = malloc(MAX_FILE_SIZE);
   char* route = malloc(sizeof(char) * 128);
   char* timestamp = malloc(sizeof(char) * 256);
-  int content_length;
-  char* html = malloc(sizeof(char) * 131072);
+  int   content_length;
+  char* html = malloc(MAX_FILE_SIZE);
   
   //--------------------------------//
   //       Configure TCP Socket     //
@@ -47,7 +47,7 @@ void* httpDaemon(void *config) {
   int socket_con;               // used to hold status of connect to socket
   socklen_t socket_size = sizeof(struct sockaddr_in);
 
-  memset(&server, 0, sizeof(server));            // zero the struct before filling the fields
+  memset(&server, 0, sizeof(server));          // zero the struct before filling the fields
   server.sin_family = AF_INET;                 // set to use Internet address family
   server.sin_addr.s_addr = htonl(INADDR_ANY);  // sets our local IP address
   server.sin_port = htons(port);               // sets the server port number
@@ -61,7 +61,7 @@ void* httpDaemon(void *config) {
     printf("ERROR: Opening socket\n");
     pthread_exit(NULL);
   }
-  else { printf("TCP Socket Created! \n"); }
+  else { printf("TCP Socket Created!\n"); }
 
   // bind server information with server file poitner
   status = bind(socket_fp, (struct sockaddr *)&server, sizeof(struct sockaddr));
@@ -88,9 +88,10 @@ void* httpDaemon(void *config) {
   
   while(socket_con) {
 
-    msg_size = recv(socket_con, msg_receive, 4096, 0);
+    msg_size = recv(socket_con, msg_receive, MAX_HTTP_SIZE, 0);
     //printf("message of %d bytes:\n%s\n", msg_size, msg_receive);
     //printf("--------------------------\n");
+    printf("HTTP Request Size: %d\n", msg_size);
     
     sprintf(msg_callback, "Incoming connection from %s - sending welcome\n", inet_ntoa(client.sin_addr));
 
@@ -116,8 +117,9 @@ void* httpDaemon(void *config) {
     
     memset(msg_receive, 0, msg_size); //clears receive message
 
-    // HTTP Reponse - Need to format string
-
+    /////////////////////////////////////////
+    // HTTP Reponse - Need to format string//
+    /////////////////////////////////////////
     
     if (strncmp(route, "/key/", 5) == 0) {
 
@@ -127,15 +129,19 @@ void* httpDaemon(void *config) {
     } else {
       
       getTime(&timestamp, 256);
-      content_length = getHTML(route, &html, 131072);
+      content_length = getHTML(route, &html, MAX_FILE_SIZE);
 
       if (content_length < 0) {
 	sprintf(msg_return, "HTTP/1.1 400 OK\r\nCache-Control: no-cache, private\r\nDate: %s\r\n\r\n", timestamp);
       } else {
-	sprintf(msg_return, "HTTP/1.1 200 OK\r\nCache-Control: no-cache, private\r\nContent-Length: %i\r\nDate: %s\r\n\r\n%s", content_length, timestamp, html);
+	//sprintf(msg_return, "HTTP/1.1 200 OK\r\nCache-Control: no-cache, private\r\nContent-Length: %i\r\nDate: %s\r\n\r\n%s", content_length, timestamp, html);
+	sprintf(msg_return, "HTTP/1.1 200 OK\r\nCache-Control: no-cache, private\r\nContent-Length: %i\r\nDate: %s\r\n\r\n", content_length, timestamp);
       }
       
     }
+    //    fwrite(html, content_length, 1, stdout);
+    //printf("return\n%s\n",html);
+    strcat(msg_return, html);
     
     send(socket_con, msg_return, strlen(msg_return), 0);
 

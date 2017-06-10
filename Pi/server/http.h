@@ -14,18 +14,25 @@
 
 #include "util.h"
 
+#define MAX_FILE_SIZE 5000000 // 5MB
+#define MAX_HTTP_SIZE 500000  // 500KB
+
 typedef void (*callback)(char*);
 typedef void (*callbackInt)(int*);
 
 typedef struct http_t {
-  callback response;
   int port;
+  callback response;
 } http_t;
 
+// Call to spin up an HTTP sever
+// Returns 0 on success
 int httpServer(http_t *http);
 
-void* httpDaemon(void *config);
+// Creates a new thread to run the Daemon server
+static void* httpDaemon(void *config);
 
-void findRoute(const char* request, char** route);
+// Parses out route from a HTTP request string
+static void findRoute(const char* request, char** route);
 
 #endif

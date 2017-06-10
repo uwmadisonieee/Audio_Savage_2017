@@ -18,7 +18,12 @@ int main ( int argc, char* argv[] ) {
   http.response = onResponse;
 
   // start server
-  httpServer(&http);
+  status = httpServer(&http);
 
+  if (status < 0) {
+    printf("http Server didn't start up correctly\n");
+    exit(1);
+  }
+  
   while(1){}
 }
