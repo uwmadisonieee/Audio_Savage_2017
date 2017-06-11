@@ -20,6 +20,14 @@ int httpServer(http_t *http) {
   return status;
 }
 
+/*
+  Creates a block of memory of MAX_HTTP_SIZE large and splits it
+  into a header section and body section. The body gets put in the
+  body section like normal, but the header section is inserted at
+  the end of the header section so there will be a unused gap at
+  beginning of header section, but this is so they align next to
+  each other and there is no need to memcpy the memory more than once
+ */
 void* httpDaemon(void *config) {
 
   //--------------------------------//
@@ -28,10 +36,10 @@ void* httpDaemon(void *config) {
   
   int port = ((http_t*)config)->port;
 
-  char* msg_receive = malloc(MAX_HTTP_SIZE);
-  int   msg_size;
+  char* receive_HTTP = malloc(MAX_HTTP_SIZE);
+  int   receive_size;
   //  char* msg_callback = malloc(MAX_HTTP_SIZE);
-  char* msg_return = malloc(MAX_FILE_SIZE);
+  char* return_HTTP = malloc(MAX_FILE_SIZE);
   char* header_temp = malloc(HEADER_SIZE);
   char* route = malloc(sizeof(char) * 128);
   char* timestamp = malloc(sizeof(char) * 256);
@@ -90,34 +98,36 @@ void* httpDaemon(void *config) {
   
   while(socket_con) {
 
-    msg_size = recv(socket_con, msg_receive, MAX_HTTP_SIZE, 0);
-    //printf("message of %d bytes:\n%s\n", msg_size, msg_receive);
-    //printf("--------------------------\n");
-    printf("HTTP Request Size: %d\n", msg_size);
-    
-    //    sprintf(msg_callback, "Incoming connection from %s - sending welcome\n", inet_ntoa(client.sin_addr));
+    receive_size = recv(socket_con, receive_HTTP, MAX_HTTP_SIZE, 0);
 
-    // HTTP Request - Need to handle it accordingly
+    printf("HTTP Request Size: %d\n", receive_size);
     
-    if (strncmp(msg_receive, "GET", 3) == 0) { //GET Request
+    // inet_ntoa(client.sin_addr) == string of sender IP;
 
-      findRoute(msg_receive, &route);
+    /////////////////////////////////////////////////
+    // HTTP Request - Need to handle it accordingly//
+    /////////////////////////////////////////////////
+    
+    if (strncmp(receive_HTTP, "GET", 3) == 0) { //GET Request
+
+      findRoute(receive_HTTP, &route);
 
       //      get_FindMethod(route, &returnMsg);
 
-    } else if (strncmp(msg_receive, "POST", 4) == 0) { //POST Request
-      //printf("POST \n");
-      //findRoute(msg_receive, &route);
-      //printf("Route: %s\n", route);
-      //findBody(msg_receive, &postBody);
+    } else if (strncmp(receive_HTTP, "POST", 4) == 0) { //POST Request
+
+      findRoute(receive_HTTP, &route);
+      //findBody(receive_HTTP, &postBody);
       //post_FindMethod(route, &returnMsg, postBody);
 
     } else { //something not GET or POST
-      //printf("NONE \n");
-      strcpy(msg_return, "HTTP Method not supported");
+      strcpy(return_HTTP, "HTTP Method not supported");
+      // TODO
     }
+
+    printf("Route: %s\n", route);
     
-    memset(msg_receive, 0, msg_size); //clears receive message
+    memset(receive_HTTP, 0, receive_size); //clears receive message
 
     /////////////////////////////////////////
     // HTTP Reponse - Need to format string//
@@ -126,31 +136,31 @@ void* httpDaemon(void *config) {
     if (strncmp(route, "/key/", 5) == 0) {
 
       ((http_t*)config)->response(route + 5);
-      strcpy(msg_return, "Key Received");
+      strcpy(return_HTTP, "Key Received");
 
     } else {
-      
+
+      // generates timestamp for return header
       getTime(&timestamp, 256);
-      content_length = getFileContent(route, msg_return + HEADER_SIZE, BODY_SIZE);
+
+      // gets contents from file to send back in return boday
+      content_length = getFileContent(route, return_HTTP + HEADER_SIZE, BODY_SIZE);
 
       if (content_length < 0) {
-	sprintf(msg_return, "HTTP/1.1 400 OK\r\nCache-Control: no-cache, private\r\nDate: %s\r\n\r\n", timestamp);
-	header_length = strlen(msg_return);
+	sprintf(return_HTTP, "HTTP/1.1 400 OK\r\nCache-Control: no-cache, private\r\nDate: %s\r\n\r\n", timestamp);
+	header_length = strlen(return_HTTP);
 	header_offset = 0;
 	content_length = 0; // need for send() logic
       } else {
 	sprintf(header_temp, "HTTP/1.1 200 OK\r\nCache-Control: no-cache, private\r\nContent-Length: %i\r\nDate: %s\r\n\r\n", content_length, timestamp);
 	header_length = strlen(header_temp);
 	header_offset = (HEADER_SIZE - header_length);
-	memcpy(msg_return + header_offset, header_temp, header_length);
+	memcpy(return_HTTP + header_offset, header_temp, header_length);
       }
       
     }
-    //    fwrite(html, content_length, 1, stdout);
-    //printf("return\n%s\n",html);
-    //    strcat(msg_return, html);
     
-    send(socket_con, msg_return + header_offset, header_length + content_length, 0);
+    send(socket_con, return_HTTP + header_offset, header_length + content_length, 0);
 
     close(socket_con);
 

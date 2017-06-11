@@ -45,8 +45,6 @@ int getFileContent(char* relative_path, char* return_body, int length) {
     file_p = fopen(file_path, "rb");
   }
   
-  printf("file_path %s\n",file_path);
-  
   if (file_p == NULL) {
     return printError("ERROR: getFileContent - can't open file\n", -1);
   }
