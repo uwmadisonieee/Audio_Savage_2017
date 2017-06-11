@@ -30,12 +30,14 @@ void* httpDaemon(void *config) {
 
   char* msg_receive = malloc(MAX_HTTP_SIZE);
   int   msg_size;
-  char* msg_callback = malloc(MAX_HTTP_SIZE);
+  //  char* msg_callback = malloc(MAX_HTTP_SIZE);
   char* msg_return = malloc(MAX_FILE_SIZE);
+  char* header_temp = malloc(HEADER_SIZE);
   char* route = malloc(sizeof(char) * 128);
   char* timestamp = malloc(sizeof(char) * 256);
   int   content_length;
-  char* html = malloc(MAX_FILE_SIZE);
+  int   header_offset;
+  int   header_length;
   
   //--------------------------------//
   //       Configure TCP Socket     //
@@ -93,7 +95,7 @@ void* httpDaemon(void *config) {
     //printf("--------------------------\n");
     printf("HTTP Request Size: %d\n", msg_size);
     
-    sprintf(msg_callback, "Incoming connection from %s - sending welcome\n", inet_ntoa(client.sin_addr));
+    //    sprintf(msg_callback, "Incoming connection from %s - sending welcome\n", inet_ntoa(client.sin_addr));
 
     // HTTP Request - Need to handle it accordingly
     
@@ -129,21 +131,26 @@ void* httpDaemon(void *config) {
     } else {
       
       getTime(&timestamp, 256);
-      content_length = getHTML(route, &html, MAX_FILE_SIZE);
+      content_length = getFileContent(route, msg_return + HEADER_SIZE, BODY_SIZE);
 
       if (content_length < 0) {
 	sprintf(msg_return, "HTTP/1.1 400 OK\r\nCache-Control: no-cache, private\r\nDate: %s\r\n\r\n", timestamp);
+	header_length = strlen(msg_return);
+	header_offset = 0;
+	content_length = 0; // need for send() logic
       } else {
-	//sprintf(msg_return, "HTTP/1.1 200 OK\r\nCache-Control: no-cache, private\r\nContent-Length: %i\r\nDate: %s\r\n\r\n%s", content_length, timestamp, html);
-	sprintf(msg_return, "HTTP/1.1 200 OK\r\nCache-Control: no-cache, private\r\nContent-Length: %i\r\nDate: %s\r\n\r\n", content_length, timestamp);
+	sprintf(header_temp, "HTTP/1.1 200 OK\r\nCache-Control: no-cache, private\r\nContent-Length: %i\r\nDate: %s\r\n\r\n", content_length, timestamp);
+	header_length = strlen(header_temp);
+	header_offset = (HEADER_SIZE - header_length);
+	memcpy(msg_return + header_offset, header_temp, header_length);
       }
       
     }
     //    fwrite(html, content_length, 1, stdout);
     //printf("return\n%s\n",html);
-    strcat(msg_return, html);
+    //    strcat(msg_return, html);
     
-    send(socket_con, msg_return, strlen(msg_return), 0);
+    send(socket_con, msg_return + header_offset, header_length + content_length, 0);
 
     close(socket_con);
 

@@ -15,6 +15,9 @@
 #include "util.h"
 
 #define MAX_FILE_SIZE 5000000 // 5MB
+#define HEADER_SIZE 20000     // 20kb
+#define BODY_SIZE 4980000     // 5MB - 20kb
+
 #define MAX_HTTP_SIZE 500000  // 500KB
 
 typedef void (*callback)(char*);

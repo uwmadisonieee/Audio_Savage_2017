@@ -1,5 +1,12 @@
 #include "util.h"
 
+int printError(char* message, int return_val) {
+  if (1 == PRINT_ERRORS) {
+    printf("%s\n", message);
+  }
+  return return_val;
+}
+
 void getTime(char** timestamp, int length) {
 
   time_t raw_time;
@@ -11,36 +18,49 @@ void getTime(char** timestamp, int length) {
   strftime(*timestamp, length, "%a, %d %b %Y %H:%M:%S %Z", info);  
 }
 
-int getHTML(char* file, char** html, int length) {
+int getFileContent(char* relative_path, char* return_body, int length) {
 
   FILE* file_p;
-  int content_length;
-  char file_path[512];
-
-  strcpy(file_path, WEBSITE_FOLDER);
-  strcat(file_path, file);  
+  int   content_length;
+  char  file_path[512];
+  char*  file_ext;
+  const char PERIOD = '.';
   
-  file_p = fopen(file_path, "rb");
+  strcpy(file_path, WEBSITE_FOLDER);
+  strcat(file_path, relative_path);  
+
+  // need to decide if file is text or binary
+  file_ext = strrchr(relative_path, PERIOD);
+
+  if (NULL == file_ext) {
+    return printError("ERROR: getFileContent - no file extension\n", -1);
+  }
+
+  // Only opens as text file if one of accepted text file types
+  if ( 0 == strcmp(file_ext, ".html") ||
+       0 == strcmp(file_ext, ".css")  ||
+       0 == strcmp(file_ext, ".js")) {
+    file_p = fopen(file_path, "r");
+  } else {  
+    file_p = fopen(file_path, "rb");
+  }
+  
   printf("file_path %s\n",file_path);
   
   if (file_p == NULL) {
-    printf("ERROR: getHTML - can't open file\n");
-    return -1;
+    return printError("ERROR: getFileContent - can't open file\n", -1);
   }
   
   // gets lenght of file and resets
   fseek(file_p, 0, SEEK_END);
   content_length = ftell(file_p);
   fseek(file_p, 0, SEEK_SET);
-  printf("content-length %d\n", content_length);
   
-  // bottle neck of reading is min(fileSize, bufferSize)
   if (content_length > length) {
-    content_length = length;
+    return printError("ERROR: getFileContent - File to large\n", -1);
   }
   
-  fread(*html, content_length, 1, file_p);
-  //  fwrite(*html, content_length, 1, stdout);
+  fread(return_body, content_length, 1, file_p);
   fclose(file_p);
   return content_length;
 }
