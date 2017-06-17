@@ -37,11 +37,11 @@ void* httpDaemon(void *config) {
   int port = ((http_t*)config)->port;
   int status;
   
-  char* receive_HTTP = malloc(MAX_RECEIVE_SIZE);
-  int   receive_size;
-  HTTP_VERB receive_verb;
+  char* request_HTTP = malloc(MAX_REQUEST_SIZE);
+  int   request_size;
+  HTTP_VERB request_verb;
   //  char* msg_callback = malloc(MAX_HTTP_SIZE);
-  char* return_HTTP = malloc(MAX_RETURN_SIZE);
+  char* response_HTTP = malloc(MAX_RESPONSE_SIZE);
   char* header_temp = malloc(MAX_HEADER_SIZE); //TODO not limit
   char* route = malloc(sizeof(char) * 128);
   char* timestamp = malloc(sizeof(char) * 256);
@@ -100,9 +100,9 @@ void* httpDaemon(void *config) {
   
   while(socket_con) {
 
-    receive_size = recv(socket_con, receive_HTTP, MAX_RECEIVE_SIZE, 0);
+    request_size = recv(socket_con, request_HTTP, MAX_REQUEST_SIZE, 0);
 
-    printf("HTTP Request Size: %d\n", receive_size);
+    printf("HTTP Request Size: %d\n", request_size);
     
     // inet_ntoa(client.sin_addr) == string of sender IP;
 
@@ -111,17 +111,17 @@ void* httpDaemon(void *config) {
     /////////////////////////////////////////////////
 
     // Get HTTP Verb Type
-    if (strncmp(receive_HTTP, "GET", 3) == 0) {
-      receive_verb = GET;
-    } else if (strncmp(receive_HTTP, "POST", 4) == 0) {
-      receive_verb = POST;     
+    if (strncmp(request_HTTP, "GET", 3) == 0) {
+      request_verb = GET;
+    } else if (strncmp(request_HTTP, "POST", 4) == 0) {
+      request_verb = POST;     
     } else {
-      strcpy(return_HTTP, "HTTP Verb not supported");
+      strcpy(response_HTTP, "HTTP Verb not supported");
       // TODO
     }
     
     // Get Route
-    findRoute(receive_HTTP, &route);
+    findRoute(request_HTTP, &route);
 
     printf("Route: %s\n", route);
     
@@ -129,7 +129,7 @@ void* httpDaemon(void *config) {
     // HTTP Reponse - Need to format string//
     /////////////////////////////////////////
 
-    status = callApiRoute(route, &receive_HTTP, receive_verb);
+    status = callApiRoute(route, &request_HTTP, request_verb, (http_t*)config);
 
     if (status != 1) {
 
@@ -138,45 +138,45 @@ void* httpDaemon(void *config) {
     if (strncmp(route, "/key/", 5) == 0) {
 
       ((http_t*)config)->response(route + 5);
-      strcpy(return_HTTP, "Key Received");
+      strcpy(response_HTTP, "Key Received");
 
     } else {
 
-      // generates timestamp for return header
+      // generates timestamp for response header
       getTime(&timestamp, 256);
 
-      // gets contents from file to send back in return boday
+      // gets contents from file to send back in response boday
       content_length = getFileContent(route,
-				      &return_HTTP,
-				      MAX_RETURN_SIZE);
+				      &response_HTTP,
+				      MAX_RESPONSE_SIZE);
 
       if (content_length < 0) {
-	sprintf(return_HTTP, "HTTP/1.1 400 OK\r\nCache-Control: no-cache, private\r\nDate: %s\r\n\r\n", timestamp);
-	header_length = strlen(return_HTTP);
+	sprintf(response_HTTP, "HTTP/1.1 400 OK\r\nCache-Control: no-cache, private\r\nDate: %s\r\n\r\n", timestamp);
+	header_length = strlen(response_HTTP);
 	header_offset = 0;
 	content_length = 0; // need for send() logic
       } else {
-	// gets a pointer where the return_body starts
+	// gets a pointer where the response_body starts
 	sprintf(header_temp, "HTTP/1.1 200 OK\r\nCache-Control: no-cache, private\r\nContent-Length: %i\r\nDate: %s\r\n\r\n", content_length, timestamp);
 	header_length = strlen(header_temp);
 
-	if (content_length + header_length > MAX_RETURN_SIZE) {
-	  // TODO - too large of return
+	if (content_length + header_length > MAX_RESPONSE_SIZE) {
+	  // TODO - too large of response
 	}
 	
 	// offset where header is from start of buffer
-	header_offset = MAX_RETURN_SIZE - content_length - header_length;
+	header_offset = MAX_RESPONSE_SIZE - content_length - header_length;
 
-	memcpy(return_HTTP + header_offset, header_temp, header_length);
+	memcpy(response_HTTP + header_offset, header_temp, header_length);
       }
       
     }
     
-    send(socket_con, return_HTTP + header_offset, header_length + content_length, 0);
+    send(socket_con, response_HTTP + header_offset, header_length + content_length, 0);
 
     close(socket_con);
 
-    memset(receive_HTTP, 0, receive_size); //clears receive message
+    memset(request_HTTP, 0, request_size); //clears request message
 	
     //printf("waiting for next request\n");
     //printf("--------------------------\n");

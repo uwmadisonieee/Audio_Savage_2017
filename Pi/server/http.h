@@ -16,16 +16,10 @@
 #include "api.h"
 
 // saves a chunk of memory for header
-#define MAX_RETURN_SIZE 5000000 // 5MB
+#define MAX_RESPONSE_SIZE 5000000 // 5MB
 #define MAX_HEADER_SIZE 20000   // 20kb
-#define MAX_BODY_SIZE   4980000 // 5MB - 20kb
 
-#define MAX_RECEIVE_SIZE 500000  // 500KB
-
-typedef struct http_t {
-  int port;
-  callback response;
-} http_t;
+#define MAX_REQUEST_SIZE 500000  // 500KB
 
 // Call to spin up an HTTP sever
 // Returns 0 on success
