@@ -147,8 +147,8 @@ void* httpDaemon(void *config) {
 
       // gets contents from file to send back in return boday
       content_length = getFileContent(route,
-				      return_HTTP + MAX_HEADER_SIZE,
-				      MAX_BODY_SIZE);
+				      &return_HTTP,
+				      MAX_RETURN_SIZE);
 
       if (content_length < 0) {
 	sprintf(return_HTTP, "HTTP/1.1 400 OK\r\nCache-Control: no-cache, private\r\nDate: %s\r\n\r\n", timestamp);
@@ -160,8 +160,11 @@ void* httpDaemon(void *config) {
 	sprintf(header_temp, "HTTP/1.1 200 OK\r\nCache-Control: no-cache, private\r\nContent-Length: %i\r\nDate: %s\r\n\r\n", content_length, timestamp);
 	header_length = strlen(header_temp);
 
+	if (content_length + header_length > MAX_RETURN_SIZE) {
+	  // TODO - too large of return
+	}
+	
 	// offset where header is from start of buffer
-	// TODO check for overflow
 	header_offset = MAX_RETURN_SIZE - content_length - header_length;
 
 	memcpy(return_HTTP + header_offset, header_temp, header_length);

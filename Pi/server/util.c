@@ -18,7 +18,7 @@ void getTime(char** timestamp, int length) {
   strftime(*timestamp, length, "%a, %d %b %Y %H:%M:%S %Z", info);  
 }
 
-int getFileContent(char* relative_path, char* return_body, int length) {
+int getFileContent(char* relative_path, char** return_body, int length) {
 
   FILE* file_p;
   int   content_length;
@@ -62,7 +62,7 @@ int getFileContent(char* relative_path, char* return_body, int length) {
   }
 
   // reads in file so its right align with max length
-  fread(return_body + front_offset, content_length, 1, file_p);
+  fread(*return_body + front_offset, content_length, 1, file_p);
   fclose(file_p);
   return content_length;
 }
