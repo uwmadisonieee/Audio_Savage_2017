@@ -39,12 +39,13 @@ void* httpDaemon(void *config) {
   char* receive_HTTP = malloc(MAX_HTTP_SIZE);
   int   receive_size;
   //  char* msg_callback = malloc(MAX_HTTP_SIZE);
-  char* return_HTTP = malloc(MAX_FILE_SIZE);
-  char* header_temp = malloc(HEADER_SIZE);
+  char* return_HTTP = malloc(MAX_RETURN_SIZE);
+  //  char* return_body;
+  char* header_temp = malloc(MAX_HEADER_SIZE);
   char* route = malloc(sizeof(char) * 128);
   char* timestamp = malloc(sizeof(char) * 256);
   int   content_length;
-  int   header_offset;
+  //  int   header_offset;
   int   header_length;
   
   //--------------------------------//
@@ -144,23 +145,28 @@ void* httpDaemon(void *config) {
       getTime(&timestamp, 256);
 
       // gets contents from file to send back in return boday
-      content_length = getFileContent(route, return_HTTP + HEADER_SIZE, BODY_SIZE);
+      content_length = getFileContent(route,
+				      return_HTTP + MAX_HEADER_SIZE,
+				      MAX_BODY_SIZE);
 
       if (content_length < 0) {
 	sprintf(return_HTTP, "HTTP/1.1 400 OK\r\nCache-Control: no-cache, private\r\nDate: %s\r\n\r\n", timestamp);
 	header_length = strlen(return_HTTP);
-	header_offset = 0;
+	//header_offset = 0;
 	content_length = 0; // need for send() logic
       } else {
+	// gets a pointer where the return_body starts
+	//	return_body = return_HTTP + (MAX_BODY_SIZE - content_length);
 	sprintf(header_temp, "HTTP/1.1 200 OK\r\nCache-Control: no-cache, private\r\nContent-Length: %i\r\nDate: %s\r\n\r\n", content_length, timestamp);
 	header_length = strlen(header_temp);
-	header_offset = (HEADER_SIZE - header_length);
-	memcpy(return_HTTP + header_offset, header_temp, header_length);
+	//header_offset = (HEADER_SIZE - header_length);
+	//memcpy(return_HTTP + header_offset, header_temp, header_length);
+	memcpy(return_HTTP + (MAX_RETURN_SIZE - content_length - header_length), header_temp, header_length);
       }
       
     }
     
-    send(socket_con, return_HTTP + header_offset, header_length + content_length, 0);
+    send(socket_con, return_HTTP + (MAX_RETURN_SIZE - content_length - header_length), header_length + content_length, 0);
 
     close(socket_con);
 

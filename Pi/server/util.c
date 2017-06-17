@@ -22,6 +22,7 @@ int getFileContent(char* relative_path, char* return_body, int length) {
 
   FILE* file_p;
   int   content_length;
+  int   front_offset = 0;
   char  file_path[512];
   char*  file_ext;
   const char PERIOD = '.';
@@ -56,9 +57,12 @@ int getFileContent(char* relative_path, char* return_body, int length) {
   
   if (content_length > length) {
     return printError("ERROR: getFileContent - File to large\n", -1);
+  } else {
+    front_offset = length - content_length;
   }
-  
-  fread(return_body, content_length, 1, file_p);
+
+  // reads in file so its right align with max length
+  fread(return_body + front_offset, content_length, 1, file_p);
   fclose(file_p);
   return content_length;
 }
