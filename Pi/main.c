@@ -6,6 +6,10 @@ void onResponse( char* response ) {
   printf("CALLBACK: %s\n", response);
 }
 
+void onKeyPress( char key ) {
+  printf("Key Pressed: %c\n", key);
+}
+
 int main ( int argc, char* argv[] ) {
 
   int status;
@@ -16,6 +20,9 @@ int main ( int argc, char* argv[] ) {
   
   // set function to receive actions
   http.response = onResponse;
+
+  // set function to receive a key press
+  http.onKeyPress = onKeyPress;
 
   // start server
   status = httpServer(&http);

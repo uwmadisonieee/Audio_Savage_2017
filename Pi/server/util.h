@@ -10,11 +10,13 @@
 #define PRINT_ERRORS 1
 
 typedef void (*callback)(char*);
+typedef void (*callbackChar)(char);
 typedef void (*callbackInt)(int*);
 
 typedef struct http_t {
-  int port;
-  callback response;
+  int          port;
+  callback     response;
+  callbackChar onKeyPress;
 } http_t;
 
 typedef enum HTTP_VERB {
