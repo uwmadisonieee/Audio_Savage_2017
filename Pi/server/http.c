@@ -39,11 +39,9 @@ void* httpDaemon(void *config) {
   
   char* request_HTTP = malloc(MAX_REQUEST_SIZE);
   int   request_size;
-  HTTP_VERB request_verb;
-  //  char* msg_callback = malloc(MAX_HTTP_SIZE);
   char* response_HTTP = malloc(MAX_RESPONSE_SIZE);
   char* header_temp = malloc(MAX_HEADER_SIZE); //TODO not limit
-  char* route = malloc(sizeof(char) * 128);
+  char* route = malloc(sizeof(char) * 256); // TODO limit?
   char* timestamp = malloc(sizeof(char) * 256);
   int   content_length;
   int   header_offset;
@@ -105,23 +103,9 @@ void* httpDaemon(void *config) {
     printf("HTTP Request Size: %d\n", request_size);
     
     // inet_ntoa(client.sin_addr) == string of sender IP;
-
-    /////////////////////////////////////////////////
-    // HTTP Request - Need to handle it accordingly//
-    /////////////////////////////////////////////////
-
-    // Get HTTP Verb Type
-    if (strncmp(request_HTTP, "GET", 3) == 0) {
-      request_verb = GET;
-    } else if (strncmp(request_HTTP, "POST", 4) == 0) {
-      request_verb = POST;     
-    } else {
-      strcpy(response_HTTP, "HTTP Verb not supported");
-      // TODO
-    }
-    
-    // Get Route
-    findRoute(request_HTTP, &route);
+   
+    // Get Route since we need if not API and need file path
+    findRoute(&request_HTTP, &route);
 
     printf("Route: %s\n", route);
     
@@ -129,19 +113,11 @@ void* httpDaemon(void *config) {
     // HTTP Reponse - Need to format string//
     /////////////////////////////////////////
 
-    status = callApiRoute(route, &request_HTTP, request_verb, (http_t*)config);
+    status = callApiRoute(&request_HTTP, &response_HTTP, route, (http_t*)config);
 
-    if (status != 1) {
-
-    }
-    
-    if (strncmp(route, "/key/", 5) == 0) {
-
-      ((http_t*)config)->response(route + 5);
-      strcpy(response_HTTP, "Key Received");
-
-    } else {
-
+    if (0 == status) {
+      // Not a API route, checking for file
+      
       // generates timestamp for response header
       getTime(&timestamp, 256);
 
@@ -170,6 +146,10 @@ void* httpDaemon(void *config) {
 	memcpy(response_HTTP + header_offset, header_temp, header_length);
       }
       
+    } else if (status > 0) {
+      // api was called
+    } else {
+      //tODO error
     }
     
     send(socket_con, response_HTTP + header_offset, header_length + content_length, 0);
@@ -187,12 +167,12 @@ void* httpDaemon(void *config) {
   
 }
 
-void findRoute(const char* request, char** route) {
+void findRoute(char** request, char** route) {
     int end_index = 0;
     char *route_str;
 
     //finds when the route starts
-    route_str = strstr(request, "/");
+    route_str = strstr(*request, "/");
 
     //finds when the route ends
     while (route_str[end_index] != ' ') {

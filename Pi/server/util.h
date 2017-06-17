@@ -12,6 +12,11 @@
 typedef void (*callback)(char*);
 typedef void (*callbackInt)(int*);
 
+typedef struct http_t {
+  int port;
+  callback response;
+} http_t;
+
 typedef enum HTTP_VERB {
   GET,
   POST

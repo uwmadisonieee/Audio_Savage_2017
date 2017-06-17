@@ -11,8 +11,9 @@
 // returns positive if success
 //         0 if no route found
 //         negative if error
-int callApiRoute(char*     route,
-		 char**    http_request,
-		 HTTP_VERB verb);
+int callApiRoute(char**    request_HTTP,
+		 char**    response_HTTP,
+		 char*     rotue,
+		 http_t*   config);
 
 #endif

@@ -29,6 +29,6 @@ int httpServer(http_t *http);
 static void* httpDaemon(void *config);
 
 // Parses out route from a HTTP request string
-static void findRoute(const char* request, char** route);
+static void findRoute(char** request, char** route);
 
 #endif
