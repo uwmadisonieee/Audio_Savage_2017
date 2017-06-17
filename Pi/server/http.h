@@ -13,16 +13,14 @@
 #include <pthread.h>
 
 #include "util.h"
+#include "api.h"
 
 // saves a chunk of memory for header
 #define MAX_RETURN_SIZE 5000000 // 5MB
 #define MAX_HEADER_SIZE 20000   // 20kb
 #define MAX_BODY_SIZE   4980000 // 5MB - 20kb
 
-#define MAX_HTTP_SIZE 500000  // 500KB
-
-typedef void (*callback)(char*);
-typedef void (*callbackInt)(int*);
+#define MAX_RECEIVE_SIZE 500000  // 500KB
 
 typedef struct http_t {
   int port;

@@ -35,12 +35,14 @@ void* httpDaemon(void *config) {
   //--------------------------------//
   
   int port = ((http_t*)config)->port;
-
-  char* receive_HTTP = malloc(MAX_HTTP_SIZE);
+  int status;
+  
+  char* receive_HTTP = malloc(MAX_RECEIVE_SIZE);
   int   receive_size;
+  HTTP_VERB receive_verb;
   //  char* msg_callback = malloc(MAX_HTTP_SIZE);
   char* return_HTTP = malloc(MAX_RETURN_SIZE);
-  char* header_temp = malloc(MAX_HEADER_SIZE);
+  char* header_temp = malloc(MAX_HEADER_SIZE); //TODO not limit
   char* route = malloc(sizeof(char) * 128);
   char* timestamp = malloc(sizeof(char) * 256);
   int   content_length;
@@ -98,7 +100,7 @@ void* httpDaemon(void *config) {
   
   while(socket_con) {
 
-    receive_size = recv(socket_con, receive_HTTP, MAX_HTTP_SIZE, 0);
+    receive_size = recv(socket_con, receive_HTTP, MAX_RECEIVE_SIZE, 0);
 
     printf("HTTP Request Size: %d\n", receive_size);
     
@@ -107,31 +109,31 @@ void* httpDaemon(void *config) {
     /////////////////////////////////////////////////
     // HTTP Request - Need to handle it accordingly//
     /////////////////////////////////////////////////
-    
-    if (strncmp(receive_HTTP, "GET", 3) == 0) { //GET Request
 
-      findRoute(receive_HTTP, &route);
-
-      //      get_FindMethod(route, &returnMsg);
-
-    } else if (strncmp(receive_HTTP, "POST", 4) == 0) { //POST Request
-
-      findRoute(receive_HTTP, &route);
-      //findBody(receive_HTTP, &postBody);
-      //post_FindMethod(route, &returnMsg, postBody);
-
-    } else { //something not GET or POST
-      strcpy(return_HTTP, "HTTP Method not supported");
+    // Get HTTP Verb Type
+    if (strncmp(receive_HTTP, "GET", 3) == 0) {
+      receive_verb = GET;
+    } else if (strncmp(receive_HTTP, "POST", 4) == 0) {
+      receive_verb = POST;     
+    } else {
+      strcpy(return_HTTP, "HTTP Verb not supported");
       // TODO
     }
+    
+    // Get Route
+    findRoute(receive_HTTP, &route);
 
     printf("Route: %s\n", route);
     
-    memset(receive_HTTP, 0, receive_size); //clears receive message
-
     /////////////////////////////////////////
     // HTTP Reponse - Need to format string//
     /////////////////////////////////////////
+
+    status = callApiRoute(route, &receive_HTTP, receive_verb);
+
+    if (status != 1) {
+
+    }
     
     if (strncmp(route, "/key/", 5) == 0) {
 
@@ -171,6 +173,8 @@ void* httpDaemon(void *config) {
 
     close(socket_con);
 
+    memset(receive_HTTP, 0, receive_size); //clears receive message
+	
     //printf("waiting for next request\n");
     //printf("--------------------------\n");
     socket_con = accept(socket_fp, (struct sockaddr *)&client, &socket_size);

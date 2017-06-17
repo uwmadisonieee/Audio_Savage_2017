@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Werror -c
-OBJ = server/util.o server/websocket.o server/http.o
+OBJ = server/util.o server/api.o server/websocket.o server/http.o
 
 main: server
 	$(CC) $(OBJ) main.c -lpthread -o Audio_Savage

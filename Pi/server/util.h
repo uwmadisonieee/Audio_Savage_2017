@@ -9,6 +9,14 @@
 #define WEBSITE_FOLDER "website"
 #define PRINT_ERRORS 1
 
+typedef void (*callback)(char*);
+typedef void (*callbackInt)(int*);
+
+typedef enum HTTP_VERB {
+  GET,
+  POST
+} HTTP_VERB;
+
 // makes error 1 liners
 int printError(char* message,
 	       int   return_val);
