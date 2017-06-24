@@ -36,10 +36,11 @@ void* httpDaemon(void *config) {
   
   int port = ((http_t*)config)->port;
   int status;
+  int on = 1;
   
   char* request_HTTP = malloc(MAX_REQUEST_SIZE);
   int   request_size;
-  char* response_HTTP = malloc(MAX_RESPONSE_SIZE);
+  char* response_HTTP = malloc(MAX_RESPONSE_SIZE + 2);
   char* header_temp = malloc(MAX_HEADER_SIZE); //TODO not limit
   char* route = malloc(sizeof(char) * 256); // TODO limit?
   char* timestamp = malloc(sizeof(char) * 256);
@@ -73,6 +74,13 @@ void* httpDaemon(void *config) {
   }
   else { printf("TCP Socket Created!\n"); }
 
+  // This prevents the TIME_WAIT socket error on reloading
+  status = setsockopt(socket_fp, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+  if (status < 0) {
+    printf("ERROR: setting SOL_SOCKET\n");
+    pthread_exit(NULL);
+  }
+
   // bind server information with server file poitner
   status = bind(socket_fp, (struct sockaddr *)&server, sizeof(struct sockaddr));
 
@@ -100,7 +108,9 @@ void* httpDaemon(void *config) {
 
     request_size = recv(socket_con, request_HTTP, MAX_REQUEST_SIZE, 0);
 
-    printf("HTTP Request Size: %d\n", request_size);
+    //printf("HTTP Request Size: %d\n", request_size);
+
+    //printf("\n%s\n", request_HTTP);
     
     // inet_ntoa(client.sin_addr) == string of sender IP;
    
@@ -148,7 +158,11 @@ void* httpDaemon(void *config) {
       
     } else if (status > 0) {
       // api was called
-    } else {
+      sprintf(response_HTTP, "HTTP/1.1 200 OK\r\nCache-Control: no-cache, private\r\nContent-Length: 11\r\nContent-Type: application/json\r\nDate: Sat, 24 Jun 2017 05:29:07\r\n\r\n{\"test\":42}\r\n");
+      header_length = strlen(response_HTTP);
+      header_offset = 0;
+      content_length = 0; // need for send() logic
+     } else {
       //tODO error
     }
     

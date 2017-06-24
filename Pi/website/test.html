@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>IEEE Audio Savage</title>    
+  </head>
+  <body>
+    <h1>wubalubadubdub</h1>
+  </body>
+
+  <script>
+    var ws = new WebSocket('ws://' + location.host);
+    ws.onmessage = function (event) {
+    console.log(event.data);
+    };
+
+      	window.addEventListener('keydown', function(event) { 
+  		ws.send("key54");
+    })
+
+
+  </script>
+</html>
