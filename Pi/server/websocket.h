@@ -1,6 +1,12 @@
 #ifndef __WEBSOCKET_H__
 #define __WEBSOCKET_H__
 
-int websocketServer(void);
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "util.h"
+
+int websocket(void);
 
 #endif

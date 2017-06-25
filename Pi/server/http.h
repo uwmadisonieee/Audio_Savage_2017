@@ -14,6 +14,7 @@
 
 #include "util.h"
 #include "api.h"
+#include "websocket.h"
 
 // saves a chunk of memory for header
 #define MAX_RESPONSE_SIZE 5000000 // 5MB
@@ -29,6 +30,14 @@ int httpServer(http_t *http);
 static void* httpDaemon(void *config);
 
 // Parses out route from a HTTP request string
-static void findRoute(char** request, char** route);
+static void findRoute(
+		      char** request,
+		      char** route);
+
+// takes request and parses header to struct
+// returns 0 if valid, neg if error
+static int parseHeader(
+			char** request_all,
+			request_header* header);
 
 #endif

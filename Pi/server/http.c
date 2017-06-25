@@ -47,6 +47,7 @@ void* httpDaemon(void *config) {
   int   content_length;
   int   header_offset;
   int   header_length;
+  request_header header;
   
   //--------------------------------//
   //       Configure TCP Socket     //
@@ -108,15 +109,16 @@ void* httpDaemon(void *config) {
 
     request_size = recv(socket_con, request_HTTP, MAX_REQUEST_SIZE, 0);
 
-    //printf("HTTP Request Size: %d\n", request_size);
+    parseHeader(&request_HTTP, &header);
 
-    //printf("\n%s\n", request_HTTP);
+    if ( WEBSOCKET == header.type ) {
+      websocket();
+    }
+
     
-    // inet_ntoa(client.sin_addr) == string of sender IP;
-   
     // Get Route since we need if not API and need file path
     findRoute(&request_HTTP, &route);
-
+    
     printf("Route: %s\n", route);
     
     /////////////////////////////////////////
@@ -198,5 +200,66 @@ void findRoute(char** request, char** route) {
 
     //ends the string so if a shorter string is passed then last route otherwise previous longer strings will remain
     strcpy(*route + end_index, "\0");
+}
 
+int parseHeader(char** request, request_header* header)
+{
+  char* token = strtok(*request, "\r\n");
+
+  // Set defaults which we used to infer it wasn't found in header
+  header->ws_version = 0;
+  header->ws_key = "";
+  header->upgrade = "";
+  
+  if (token != NULL) {
+
+    // first check for Verb
+    if ( 0 == strncasecmp("GET /", token, 5)) {
+      header->verb = GET;
+    } else if ( 0 == strncasecmp("POST /", token, 6)) {
+      header->verb = POST;
+    } else {
+      return printError("Not Get or Post", -1);
+    }
+
+    // time to loop through header lines
+    while ( token != NULL ) {
+
+      if (0 == strncasecmp("Sec-WebSocket-Version: ", token, 23)) {
+	header->ws_version = strtol(token+23, (char**) NULL, 10);
+      } else if (0 == strncasecmp("Sec-WebSocket-Key: ", token, 19)) {
+	header->ws_key = token + 19;
+      } else if (0 == strncasecmp("Upgrade: ", token, 9)) {
+	header->upgrade = token + 9;
+      }
+      
+      token = strtok(NULL, "\r\n");
+    }
+
+    // time to validate and determine what we were requested
+    if ( 0 == header->ws_version ) {
+      // HTTP
+      header->type = HTTP;
+      return 0;
+    } else if ( 13 == header->ws_version ) {
+      
+      if ( 0 == strncasecmp(header->upgrade, "websocket", 9) &&
+	   strlen(header->upgrade) > 0 &&
+	   strlen(header->ws_key)  > 0) {
+	// websocket RFC6455
+	header->type = WEBSOCKET;
+	return 0;
+	
+      }	else {
+	return printError("Need Socket upgrade and key in header",-1);
+      }
+
+    } else {
+      return printError("Only RFC6455 Websockets supported", -1);
+    }
+	
+  } else {
+    return printError("Parse Header Error!", -1);
+  }
+  
 }

@@ -19,10 +19,24 @@ typedef struct http_t {
   callbackChar onKeyPress;
 } http_t;
 
-typedef enum HTTP_VERB {
+typedef enum HTTP_Verb {
   GET,
   POST
-} HTTP_VERB;
+} HTTP_Verb;
+
+typedef enum request_type {
+  HTTP,
+  WEBSOCKET,
+  API
+} request_type;
+
+typedef struct request_header {
+  HTTP_Verb verb;
+  request_type type;
+  int ws_version;
+  char* ws_key;
+  char* upgrade;
+} request_header;
 
 // makes error 1 liners
 int printError(char* message,
@@ -38,5 +52,4 @@ void getTime(char** timestamp,
 int getFileContent(char*  relative_path,
 		   char** return_body,
 		   int    length);
-
 #endif
