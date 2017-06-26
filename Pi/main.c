@@ -1,6 +1,4 @@
-//Use netstat -ant|grep <PORT> | awk '{print$6}'    -to check status of socket if in TIME_WAIT
-
-#include "server/http.h" 
+#include "server/server.h" 
 
 void onResponse( char* response ) {
   printf("CALLBACK: %s\n", response);
@@ -13,24 +11,29 @@ void onKeyPress( char key ) {
 int main ( int argc, char* argv[] ) {
 
   int status;
-  http_t http;
-
+  server_t server_config;
+  char* data;
+  
   // set port of server
-  http.port = 8000;
+  server_config.port = 8000;
   
   // set function to receive actions
-  http.response = onResponse;
+  server_config.response = onResponse;
 
   // set function to receive a key press
-  http.onKeyPress = onKeyPress;
+  server_config.onKeyPress = onKeyPress;
 
   // start server
-  status = httpServer(&http);
+  status = server(&server_config);
 
   if (status < 0) {
     printf("http Server didn't start up correctly\n");
     exit(1);
   }
   
-  while(1){}
+  while(1){
+    printf("What is your biggest secret ever\n");
+    scanf("%s", &data);
+    broadcast(data);    
+  }
 }
