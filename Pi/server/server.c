@@ -62,7 +62,9 @@ void* serverDaemon(void *config) {
     printf("ERROR: Opening socket\n");
     pthread_exit(NULL);
   }
-  else { printf("TCP Socket Created!\n"); }
+  else {
+    printf("TCP Socket Created!\n");
+  }
 
   // This prevents the TIME_WAIT socket error on reloading
   status = setsockopt(socket_fp, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
@@ -101,12 +103,15 @@ void* serverDaemon(void *config) {
     
     request_size = recv(socket_con, request_HTTP, MAX_REQUEST_SIZE, 0);
 
-    parseHeader(&request_HTTP, &header);
-
+    request_header* header = parseHeader(&request_HTTP);
+    if (NULL == header) {
+      printf("Couldn't allocate header!");
+    }
+    
     if ( WEBSOCKET == header.type ) {
       wsHandle(config);
     } else if ( HTTP == header.type ) {
-      httpHandle(config);
+      httpHandle(config, socket_con);
     }
 
     //printf("waiting for next request\n");
@@ -117,14 +122,15 @@ void* serverDaemon(void *config) {
   pthread_exit(NULL); 
 }
 
-int parseHeader(char** request, request_header* header)
+request_header* parseHeader(char** request)
 {
-  char* token = strtok(*request, "\r\n");
 
-  // Set defaults which we used to infer it wasn't found in header
-  header->ws_version = 0;
-  header->ws_key = "";
-  header->upgrade = "";
+  // Defaults are set which we used to infer it wasn't found in header
+  request_header* header = headerNew();
+
+  char* token = strtok(*request, "\r\n");
+  char* route;
+  int route_length = 0;
   
   if (token != NULL) {
 
@@ -134,9 +140,16 @@ int parseHeader(char** request, request_header* header)
     } else if ( 0 == strncasecmp("POST /", token, 6)) {
       header->verb = POST;
     } else {
-      return printError("Not Get or Post", -1);
+      return printErrorNull("Not Get or Post");
     }
 
+    route = strstr(*request, "/");
+    // finds where route path ends
+    while (route[route_length] != ' ') {
+      route_length++;
+    }
+    strncpy(header->route, route, route_length);
+    
     // time to loop through header lines
     while ( token != NULL ) {
 
@@ -155,26 +168,23 @@ int parseHeader(char** request, request_header* header)
     if ( 0 == header->ws_version ) {
       // HTTP
       header->type = HTTP;
-      return 0;
+      return header;
+      
     } else if ( 13 == header->ws_version ) {
       
       if ( 0 == strncasecmp(header->upgrade, "websocket", 9) &&
-	   strlen(header->upgrade) > 0 &&
-	   strlen(header->ws_key)  > 0) {
+	   (NULL != header->upgrade) && (NULL != header->ws_key)) {
 	// websocket RFC6455
 	header->type = WEBSOCKET;
-	return 0;
+	return header;
 	
       }	else {
-	return printError("Need Socket upgrade and key in header",-1);
+	return printErrorNull("Need Socket upgrade and key in header");
       }
-
     } else {
-      return printError("Only RFC6455 Websockets supported", -1);
-    }
-	
+      return printErrorNull("Only RFC6455 Websockets supported");
+    }	
   } else {
-    return printError("Parse Header Error!", -1);
-  }
-  
+    return printErrorNull("Parse Header Error!");
+  }  
 }

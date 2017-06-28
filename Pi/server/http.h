@@ -4,12 +4,8 @@
 #include "util.h"
 #include "api.h"
 
-void httpHandle(server_t* config);
-
-// Parses out route from a HTTP request string
-static void findRoute(
-		      char** request,
-		      char** route);
+void httpHandle(request_header* header,
+		int socket_con);
 
 // Takes files and sets it right align with the memeory at
 // return_body of size length

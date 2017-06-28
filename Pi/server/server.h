@@ -5,8 +5,6 @@
 #include "http.h"
 #include "websocket.h"
 
-#include <pthread.h>
-
 // Call to spin up an HTTP sever
 // Returns 0 on success
 int server(server_t *config);
@@ -18,9 +16,7 @@ void boradcast(char* message);
 static void* serverDaemon(void *config);
 
 // takes request and parses header to struct
-// returns 0 if valid, neg if error
-static int parseHeader(
-			char** request_all,
-			request_header* header);
+// returns header if valid, NULL if error
+static request_header* parseHeader(char** request_all);
 
 #endif

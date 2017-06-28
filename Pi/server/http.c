@@ -8,12 +8,10 @@
   between the beginning of the buffer and where the head start
   which is the part that gets sent back to client
  */
-void* httpHandle(server_t *config) {
+void* httpHandle(request_header *header, int socket_con) {
 
   int status;
   
-  char* request_HTTP = malloc(MAX_REQUEST_SIZE);
-  int   request_size;
   char* response_HTTP = malloc(MAX_RESPONSE_SIZE + 2);
   char* header_temp = malloc(MAX_HEADER_SIZE); //TODO not limit
   char* route = malloc(sizeof(char) * 256); // TODO limit?
@@ -21,21 +19,15 @@ void* httpHandle(server_t *config) {
   int   content_length;
   int   header_offset;
   int   header_length;
-      
-  // Get Route since we need if not API and need file path
-  findRoute(&request_HTTP, &route);
-  
-  printf("Route: %s\n", route);
-    
+          
   // status = callApiRoute(&request_HTTP, &response_HTTP, route, (http_t*)config);
-
   // Not a API route, checking for file
       
   // generates timestamp for response header
   getTime(&timestamp, 256);
 
   // gets contents from file to send back in response boday
-  content_length = getFileContent(route,
+  content_length = getFileContent(header->route,
 				  &response_HTTP,
 				  MAX_RESPONSE_SIZE);
 
@@ -56,7 +48,6 @@ void* httpHandle(server_t *config) {
     // offset where header is from start of buffer
     header_offset = MAX_RESPONSE_SIZE - content_length - header_length;
     
-    memcpy(response_HTTP + header_offset, header_temp, header_length);
   }
       
   // api was called
@@ -68,32 +59,17 @@ void* httpHandle(server_t *config) {
   //  tODO error
   //}
   
-  send(socket_con, response_HTTP + header_offset, header_length + content_length, 0);
+  send(socket_con, response_HTTP + header_offset, header_length + content_length, 0)
   
   close(socket_con);
+
+  // todo make one instance to prevent allocating everytime
+  free(response_HTTP);
+  free(header_temp);
+  free(route);
+  free(timestamp);
   
-  memset(request_HTTP, 0, request_size); //clears request message
-  
-  return;
-}
-
-void findRoute(char** request, char** route) {
-    int end_index = 0;
-    char *route_str;
-
-    //finds when the route starts
-    route_str = strstr(*request, "/");
-
-    //finds when the route ends
-    while (route_str[end_index] != ' ') {
-        end_index++;
-    }
-
-    //copies route from message to reference string
-    strncpy(*route, route_str, end_index);
-
-    //ends the string so if a shorter string is passed then last route otherwise previous longer strings will remain
-    strcpy(*route + end_index, "\0");
+return;
 }
 
 int getFileContent(char* relative_path, char** return_body, int length) {

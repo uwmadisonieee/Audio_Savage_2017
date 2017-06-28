@@ -1,7 +1,5 @@
 #include "websocket.h"
 
-int websocket(void) {
-  printf("-------------------\nTEST WEBWSOCKET\n------------------\n");
-  return 400;
+void wsHandle(request_header* header) {
+  
 }
-

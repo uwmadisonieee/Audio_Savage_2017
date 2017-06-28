@@ -12,6 +12,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <signal.h>
+#include <pthread.h>
 
 #define WEBSITE_FOLDER "website"
 #define PRINT_ERRORS 1
@@ -28,13 +29,15 @@ typedef void (*callbackInt)(int*);
 
 typedef enum {
   GET,
-  POST
+  POST,
+  UKKNOWN
 } VERB;
 
 typedef enum {
   HTTP,
   WEBSOCKET,
-  API
+  API,
+  UNKNOWN
 } request_type;
 
 // Info found in a WS and HTTP header
@@ -42,26 +45,39 @@ typedef struct {
   VERB verb;
   request_type type;
   int ws_version;
+  char* route;
   char* ws_key;
   char* upgrade;
   char* client_ip;
 } request_header;
 
 // Info for each ws thread created
-typedef struct {
+typedef struct ws_client_n {
   int socket_fp;
   pthread_t thread_id;
   request_header* header;
-  char* message;
+  ws_message* message;
+  struct ws_client_n* next;
 } ws_client;
 
+typedef struct {
+  char opcode[1];
+  char mask[4];
+  uint64_t len;
+  uint64_t enc_len; 
+  uint64_t next_len;
+  char *msg;
+  char *next;
+  char *enc;
+} ws_message;
+
+// We need a list to hold all the current WS clients
 typedef struct {
   int len;
   ws_client *first;
   ws_client *last;	
   pthread_mutex_t lock;
 } ws_list;
-
 
 // Configuration info sent from server
 typedef struct server_t {
@@ -70,38 +86,48 @@ typedef struct server_t {
   callbackChar onKeyPress;
 } server_t;
 
-// List functions.
-ws_list *list_new(void);
-ws_client *list_get(ws_list *l, char *addr, int socket);
-void list_free(ws_list *l);
-void list_add(ws_list *l, ws_client *n);
-void list_remove(ws_list *l, ws_client *r);
-void list_remove_all(ws_list *l);
-void list_print(ws_list *l);
-void list_multicast(ws_list *l, ws_client *n);
-void list_multicast_one(ws_list *l, ws_client *n, ws_message *m);
-void list_multicast_all(ws_list *l, ws_message *m);
-
-// Websocket functions.
-void ws_closeframe(ws_client *n, ws_connection_close c);
-void ws_send(ws_client *n, ws_message *m);
-
-// New structures.
-ws_client *client_new(int sock, char *addr);
-ws_header *header_new();
-ws_message *message_new();
-
-// Free structures
-void header_free(ws_header *h);
-void message_free(ws_message *m);
-void client_free(ws_client *n);
+//////////////////////////////////////////
+////////////    Functions    /////////////
+//////////////////////////////////////////
 
 // makes error 1 liners
 int printError(char* message,
 	       int   return_val);
 
+// makes error 1 line with returning NULL
+void* printErrorNull(char* message);
+
+// prints before exiting program
+void printFatal(char* message);
+
 // Takes a string and length and sets it to RFC 1123 Date Format for HTTP Response
 void getTime(char** timestamp,
 	     int    length);
+
+// List functions.
+ws_list* listNew(void);
+void listFree(ws_list* list);
+void listAdd(ws_list* list, ws_client* node);
+void listRemove(ws_list* list, ws_client* remove);
+void listRemoveAll(ws_list* list);
+void listPrint(ws_list* list);
+void listMulticastAll(ws_list* list, ws_message* message);
+
+// Websocket functions.
+void wsCloseframe(ws_client* client);
+void wsSend(ws_client* client, ws_message* message);
+
+// Memory handling functions
+char* getMemoryChar(char* token, int length);
+
+// New structures.
+ws_client* client_new(int sock);
+request_header* headerNew();
+ws_message* messageNew();
+
+// Free structures
+void headerFree(request_header* header);
+void messageFree(ws_message* message);
+void clientFree(ws_client* client);
 
 #endif
