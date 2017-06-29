@@ -9,13 +9,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <time.h>
 #include <unistd.h>
 #include <signal.h>
 #include <pthread.h>
 
+#include "sha1.h"
+#include "base64.h"
+
 #define WEBSITE_FOLDER "website"
 #define PRINT_ERRORS 1
+
+#define BUFFER_SIZE 8192          //8KB
+#define MAX_MESSAGE_SIZE 1048576  // 1MB
 
 // Size used when allocating memory
 #define MAX_RESPONSE_SIZE 5000000 // 5MB
@@ -40,26 +47,6 @@ typedef enum {
   UNKNOWN
 } request_type;
 
-// Info found in a WS and HTTP header
-typedef struct {
-  VERB verb;
-  request_type type;
-  int ws_version;
-  char* route;
-  char* ws_key;
-  char* upgrade;
-  char* client_ip;
-} request_header;
-
-// Info for each ws thread created
-typedef struct ws_client_n {
-  int socket_fp;
-  pthread_t thread_id;
-  request_header* header;
-  ws_message* message;
-  struct ws_client_n* next;
-} ws_client;
-
 typedef struct {
   char opcode[1];
   char mask[4];
@@ -70,6 +57,39 @@ typedef struct {
   char *next;
   char *enc;
 } ws_message;
+
+// Info found in a WS and HTTP header
+typedef struct {
+  VERB verb;
+  request_type type;
+  int ws_version;
+  char* route;
+  char* ws_key;
+  char* accept;
+  char* upgrade;
+  char* client_ip;
+  int accept_length;
+  int upgrade_length;
+} request_header;
+
+// Info for each ws thread created
+typedef struct ws_client_n {
+  int socket_id;
+  char* client_ip;
+  pthread_t thread_id;
+  request_header* header;
+  ws_message* message;
+  struct ws_client_n* next;
+} ws_client;
+
+typedef struct http_client {
+  int socket_id;
+  char* client_ip;
+  char* response_HTTP;
+  char* response_header;
+  char* timestamp;
+  request_header* header;
+} http_client;
 
 // We need a list to hold all the current WS clients
 typedef struct {
@@ -98,7 +118,7 @@ int printError(char* message,
 void* printErrorNull(char* message);
 
 // prints before exiting program
-void printFatal(char* message);
+void printFatal(char* message, int id);
 
 // Takes a string and length and sets it to RFC 1123 Date Format for HTTP Response
 void getTime(char** timestamp,
@@ -111,6 +131,7 @@ void listAdd(ws_list* list, ws_client* node);
 void listRemove(ws_list* list, ws_client* remove);
 void listRemoveAll(ws_list* list);
 void listPrint(ws_list* list);
+void listMulticast(ws_list* list, ws_client* node);
 void listMulticastAll(ws_list* list, ws_message* message);
 
 // Websocket functions.
@@ -121,13 +142,15 @@ void wsSend(ws_client* client, ws_message* message);
 char* getMemoryChar(char* token, int length);
 
 // New structures.
-ws_client* client_new(int sock);
+ws_client* wsClientNew(int socket_con, char* address);
+http_client* httpClientNew(int socket_con, char* address);
 request_header* headerNew();
 ws_message* messageNew();
 
 // Free structures
 void headerFree(request_header* header);
 void messageFree(ws_message* message);
-void clientFree(ws_client* client);
+void wsClientFree(ws_client* client);
+void httpClientFree(http_client* client);
 
 #endif

@@ -8,38 +8,32 @@
   between the beginning of the buffer and where the head start
   which is the part that gets sent back to client
  */
-void* httpHandle(request_header *header, int socket_con) {
-
-  int status;
+void* httpHandle(http_client* http_config) {
   
-  char* response_HTTP = malloc(MAX_RESPONSE_SIZE + 2);
-  char* header_temp = malloc(MAX_HEADER_SIZE); //TODO not limit
-  char* route = malloc(sizeof(char) * 256); // TODO limit?
-  char* timestamp = malloc(sizeof(char) * 256);
-  int   content_length;
-  int   header_offset;
-  int   header_length;
+  int content_length;
+  int header_offset;
+  int header_length;
           
   // status = callApiRoute(&request_HTTP, &response_HTTP, route, (http_t*)config);
   // Not a API route, checking for file
       
   // generates timestamp for response header
-  getTime(&timestamp, 256);
+  getTime(&http_config->timestamp, 256);
 
   // gets contents from file to send back in response boday
-  content_length = getFileContent(header->route,
-				  &response_HTTP,
+  content_length = getFileContent(http_config->header->route,
+				  &http_config->response_HTTP,
 				  MAX_RESPONSE_SIZE);
 
   if (content_length < 0) {
-    sprintf(response_HTTP, "HTTP/1.1 400 OK\r\nCache-Control: no-cache, private\r\nDate: %s\r\n\r\n", timestamp);
-    header_length = strlen(response_HTTP);
+    sprintf(http_config->response_HTTP, "HTTP/1.1 400 OK\r\nCache-Control: no-cache, private\r\nDate: %s\r\n\r\n", http_config->timestamp);
+    header_length = strlen(http_config->response_HTTP);
     header_offset = 0;
     content_length = 0; // need for send() logic
   } else {
     // gets a pointer where the response_body starts
-    sprintf(header_temp, "HTTP/1.1 200 OK\r\nCache-Control: no-cache, private\r\nContent-Length: %i\r\nDate: %s\r\n\r\n", content_length, timestamp);
-    header_length = strlen(header_temp);
+    sprintf(http_config->response_header, "HTTP/1.1 200 OK\r\nCache-Control: no-cache, private\r\nContent-Length: %i\r\nDate: %s\r\n\r\n", content_length, http_config->timestamp);
+    header_length = strlen(http_config->response_header);
 
     if (content_length + header_length > MAX_RESPONSE_SIZE) {
       // TODO - too large of response
@@ -59,17 +53,13 @@ void* httpHandle(request_header *header, int socket_con) {
   //  tODO error
   //}
   
-  send(socket_con, response_HTTP + header_offset, header_length + content_length, 0)
+  send(http_config->socket_id, http_config->response_HTTP + header_offset, header_length + content_length, 0);
   
-  close(socket_con);
+  close(http_config->socket_id);
 
-  // todo make one instance to prevent allocating everytime
-  free(response_HTTP);
-  free(header_temp);
-  free(route);
-  free(timestamp);
-  
-return;
+  free(http_config);
+    
+return NULL;
 }
 
 int getFileContent(char* relative_path, char** return_body, int length) {
@@ -104,7 +94,7 @@ int getFileContent(char* relative_path, char** return_body, int length) {
     return printError("ERROR: getFileContent - can't open file\n", -1);
   }
   
-  // gets lenght of file and resets
+  // gets length of file and resets
   fseek(file_p, 0, SEEK_END);
   content_length = ftell(file_p);
   fseek(file_p, 0, SEEK_SET);

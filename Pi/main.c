@@ -33,7 +33,7 @@ int main ( int argc, char* argv[] ) {
   
   while(1){
     printf("What is your biggest secret ever\n");
-    scanf("%s", &data);
+    scanf("%s", data);
     broadcast(data);    
   }
 }

@@ -62,7 +62,7 @@ void listFree (ws_list* list) {
     // DRWR disables further send and receives
     shutdown(node->socket_id, SHUT_RDWR);
     
-    clientFree(node);    
+    wsClientFree(node);    
     close(node->socket_id);
     free(node);
     node = previous;
@@ -112,9 +112,9 @@ void listRemove (ws_list* list, ws_client* remove) {
       }
 
       wsCloseframe(node);
-      shutdown(n->socket_id, SHUT_RDWR);
+      shutdown(node->socket_id, SHUT_RDWR);
 
-      clientFree(node);
+      wsClientFree(node);
       close(node->socket_id);
       free(node);
 
@@ -179,6 +179,26 @@ void listPrint(ws_list* list) {
   pthread_mutex_unlock(&list->lock);
 }
 
+// Multicasts message to all client in the list except sender
+void listMulticast(ws_list* list, ws_client* node) {
+  ws_client* previous;
+  pthread_mutex_lock(&list->lock);
+  previous = list->first;
+
+  if (NULL == previous) {
+    pthread_mutex_unlock(&list->lock);
+    return;
+  }
+
+  do {
+    if (previous != node) {
+      wsSend(previous, node->message);
+    }
+    previous = previous->next;
+  } while (NULL != previous);
+  pthread_mutex_unlock(&list->lock);
+}
+
 // Multicasts message to all client in the list.
 void listMulticastAll(ws_list* list, ws_message* message) {
   ws_client* previous;
@@ -197,7 +217,6 @@ void listMulticastAll(ws_list* list, ws_message* message) {
   pthread_mutex_unlock(&list->lock);
 }
 
-
 // Functions which creates the closeframe.
 void wsCloseframe(ws_client* client) {
   char frame[2];
@@ -206,6 +225,7 @@ void wsCloseframe(ws_client* client) {
   frame[1] = '\x00';
 
   send(client->socket_id, frame, 2, 0);
+  pthread_cancel(client->thread_id);
 }
 
 // Function which do the actual sending of messages.
@@ -225,16 +245,33 @@ char* getMemoryChar(char* token, int length) {
   return temp;
 }
 
-// Creates a new client object
-ws_client* clientNew (int sock) {
+// Creates a new we client object
+ws_client* wsClientNew (int socket_con, char* address) {
   ws_client* node = (ws_client*) malloc(sizeof(ws_client));
 
   if (NULL != node) {
-    node->socket_id = sock;
+    node->socket_id = socket_con;
+    node->client_ip = address;
     node->thread_id = 0;
     node->header = NULL;
     node->next = NULL;
     node->message = NULL;
+  }
+
+  return node;
+}
+
+// Creates a new http client object
+http_client* httpClientNew (int socket_con, char* address) {
+  http_client* node = (http_client*) malloc(sizeof(http_client));
+
+  if (NULL != node) {
+    node->socket_id = socket_con;
+    node->client_ip = address;
+    node->header = NULL;
+    node->response_HTTP = (char*)malloc(MAX_RESPONSE_SIZE + 2); // +2 for \r\n
+    node->response_header = (char*)malloc(MAX_HEADER_SIZE); // TODO reset limit?
+    node->timestamp = (char*)malloc(sizeof(char)*256);
   }
 
   return node;
@@ -246,12 +283,15 @@ request_header* headerNew() {
 
   if (NULL != header) {
     header->verb = UNKNOWN;
-    header->request_type = UNKNOWN;
+    header->type = UNKNOWN;
     header->ws_version = 0;
     header->route = NULL;
-    header-ws_key = NULL;
+    header->ws_key = NULL;
+    header->accept = NULL;
     header->upgrade = NULL;
     header->client_ip = NULL;
+    header->accept_length = 0;
+    header->upgrade_length = 0;
   }
 
   return header;
@@ -277,6 +317,12 @@ ws_message* messageNew() {
 
 // Frees all allocations in the header structure.
 void headerFree(request_header* header) {
+
+  if (NULL != header->accept) {
+    free(header->accept);
+    header->accept = NULL;
+  }
+  
   /* if (NULL != header->ws_key) {
     free(header->ws_key);
     header->ws_key = NULL;
@@ -313,17 +359,52 @@ void messageFree(ws_message* message) {
 }
 
 // Frees all allocations in the node, including the header and message 
-void clientFree(ws_client* client) {
+void wsClientFree(ws_client* client) {
 
-  if (NULL != client->headers) {
-    headerFree(client->headers);
-    free(client->headers);
-    client->headers = NULL;
+  if (NULL != client->client_ip) {
+    free(client->client_ip);
+    client->client_ip = NULL;
+  }
+  
+  if (NULL != client->header) {
+    headerFree(client->header);
+    free(client->header);
+    client->header = NULL;
   }
 
   if (NULL != client->message) {
     messageFree(client->message);
     free(client->message);
     client->message = NULL;
+  }
+}
+
+// Frees all allocations in the node, including the header and message 
+void httpClientFree(http_client* client) {
+
+  if (NULL != client->client_ip) {
+    free(client->client_ip);
+    client->client_ip = NULL;
+  }
+  
+  if (NULL != client->header) {
+    headerFree(client->header);
+    free(client->header);
+    client->header = NULL;
+  }
+
+  if (NULL != client->response_HTTP) {
+    free(client->response_HTTP);
+    client->response_HTTP = NULL;
+  }
+  
+  if (NULL != client->response_header) {
+    free(client->response_header);
+    client->response_header = NULL;
+  }
+  
+  if (NULL != client->timestamp) {
+    free(client->timestamp);
+    client->timestamp = NULL;
   }
 }

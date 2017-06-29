@@ -2,10 +2,9 @@
 #define __HTTP_H__
 
 #include "util.h"
-#include "api.h"
+//#include "api.h"
 
-void httpHandle(request_header* header,
-		int socket_con);
+void* httpHandle(http_client* http_config);
 
 // Takes files and sets it right align with the memeory at
 // return_body of size length

@@ -1,8 +1,11 @@
 #include "server.h"
 
+// global?
+ws_list* list;
 pthread_t server_thread;
+pthread_t ws_thread;
 
-static int status; // used to check status of c functions return values
+int status; // used to check status of c functions return values
 
 int server(server_t* config) {
 
@@ -10,6 +13,9 @@ int server(server_t* config) {
     return printError("Port must be between 1024 and 65536\n", -1);
   }
 
+  // creates new WS list
+  list = listNew();
+  
   status = pthread_create(&server_thread,
 			  NULL,
 			  serverDaemon,
@@ -31,12 +37,13 @@ void* serverDaemon(void *config) {
   //--------------------------------//
   
   int port = ((server_t*)config)->port;
-  int status;
   int on = 1;
   
   char* request_HTTP = malloc(MAX_REQUEST_SIZE);
   int   request_size;
-  char* header_temp = malloc(MAX_HEADER_SIZE); //TODO not limit
+
+  char* temp;
+  char* client_ip;
   
   //--------------------------------//
   //       Configure TCP Socket     //
@@ -99,21 +106,54 @@ void* serverDaemon(void *config) {
     //blocking for response
     socket_con = accept(socket_fp, (struct sockaddr *)&client, &socket_size);
 
-    // inet_ntoa(client.sin_addr)
-    
-    request_size = recv(socket_con, request_HTTP, MAX_REQUEST_SIZE, 0);
+    // get IP
+    temp = (char*) inet_ntoa(client.sin_addr); // gets address
+    client_ip = (char*) malloc(sizeof(char)*(strlen(temp)+1));
+    if (NULL == client_ip) {
+      printf("ERROR: Allocating client_ip\n");
+      exit(1); // TODO
+    }
+    // extra \0 to have it be a string with ending char
+    memset(client_ip, '\0', strlen(temp)+1);
+    memcpy(client_ip, temp, strlen(temp));	
 
+    // get request
+    request_size = recv(socket_con, request_HTTP, MAX_REQUEST_SIZE, 0);
+    if (request_size <= 0) {
+      printf("WAIT! Request Size was %d\n", request_size);
+    }
+    
     request_header* header = parseHeader(&request_HTTP);
     if (NULL == header) {
-      printf("Couldn't allocate header!");
-    }
-    
-    if ( WEBSOCKET == header.type ) {
-      wsHandle(config);
-    } else if ( HTTP == header.type ) {
-      httpHandle(config, socket_con);
+      printf("Couldn't allocate header!\n");
     }
 
+    if ( HTTP == header->type ) {
+      http_client* http_config = httpClientNew(socket_con, client_ip);
+      http_config->header = header;
+      
+      httpHandle(http_config);
+      
+    } else if ( WEBSOCKET == header->type ) {
+      
+      // create ws_client to pass across the info
+
+      ws_client* ws_node = wsClientNew(socket_con, client_ip);
+      ws_node->header = header;
+      
+      // opens new thread to keep communication with socket
+      status = pthread_create(&ws_thread,
+			      NULL,
+			      wsHandle,
+			      (void *)ws_node);
+
+      if (status < 0) {
+	printf("ERROR: Are you feeling it now Mr Krabs?\n");
+      }
+
+      pthread_detach(ws_thread);
+    }
+    
     //printf("waiting for next request\n");
     //printf("--------------------------\n");
     socket_con = accept(socket_fp, (struct sockaddr *)&client, &socket_size);
@@ -122,8 +162,7 @@ void* serverDaemon(void *config) {
   pthread_exit(NULL); 
 }
 
-request_header* parseHeader(char** request)
-{
+request_header* parseHeader(char** request) {
 
   // Defaults are set which we used to infer it wasn't found in header
   request_header* header = headerNew();
@@ -159,6 +198,7 @@ request_header* parseHeader(char** request)
 	header->ws_key = token + 19;
       } else if (0 == strncasecmp("Upgrade: ", token, 9)) {
 	header->upgrade = token + 9;
+	header->upgrade_length = strlen(header->upgrade);
       }
       
       token = strtok(NULL, "\r\n");
@@ -176,8 +216,12 @@ request_header* parseHeader(char** request)
 	   (NULL != header->upgrade) && (NULL != header->ws_key)) {
 	// websocket RFC6455
 	header->type = WEBSOCKET;
-	return header;
+
+	// Need to create SHA1 key
+	getSHA(header);
 	
+	return header;
+
       }	else {
 	return printErrorNull("Need Socket upgrade and key in header");
       }
@@ -187,4 +231,49 @@ request_header* parseHeader(char** request)
   } else {
     return printErrorNull("Parse Header Error!");
   }  
+}
+
+void getSHA(request_header* header) {
+
+  SHA1Context sha;
+  char* magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+  int magic_len = 36;
+  int length = magic_len + strlen(header->ws_key);
+  uint32_t number;
+  char key[length];
+  char sha1Key[20];
+  char* acceptKey = NULL;
+  int i;
+  
+  memset(key, '\0', length);
+  memset(sha1Key, '\0', 20);
+
+  memcpy(key, header->ws_key, (length-magic_len));
+  memcpy(key+(length-magic_len), magic, magic_len);
+
+  SHA1Reset(&sha);
+  SHA1Input(&sha, (const unsigned char*) key, length);
+
+  if ( !SHA1Result(&sha) ) {
+    printf("ERROR: doing SHA hash key from %s\n", key);
+    return;
+  }
+
+  for(i = 0; i < 5; i++) {
+    number = ntohl(sha.Message_Digest[i]);
+    memcpy(sha1Key+(4*i), (unsigned char *) &number, 4);
+  }
+
+  if (base64_encode_alloc((const char *) sha1Key, 20, &acceptKey) == 0) {
+    printf("ERROR: The input length was greater than the output length\n");
+    return;
+  }
+
+  if (acceptKey == NULL) {
+    printf("ERROR: Couldn't allocate memory.\n");
+    return;
+  }
+
+  header->accept = acceptKey;
+  header->accept_length = strlen(header->accept);
 }
