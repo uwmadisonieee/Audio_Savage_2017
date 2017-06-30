@@ -1,10 +1,10 @@
 #ifndef __SERVER_UTIL_H__
 #define __SERVER_UTIL_H__
 
-#include <sys/types.h> 			/* socket, setsockopt, accept, send, recv */
-#include <sys/socket.h> 		/* socket, setsockopt, inet_ntoa, accept */
-#include <netinet/in.h> 		/* sockaddr_in, inet_ntoa */
-#include <arpa/inet.h> 			/* htonl, htons, inet_ntoa */
+#include <sys/types.h>  // socket, setsockopt, accept, send, recv
+#include <sys/socket.h> // socket, setsockopt, inet_ntoa, accept
+#include <netinet/in.h> // sockaddr_in, inet_ntoa
+#include <arpa/inet.h> 	// htonl, htons, inet_ntoa
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,7 +21,7 @@
 #define WEBSITE_FOLDER "website"
 #define PRINT_ERRORS 1
 
-#define BUFFER_SIZE 8192          //8KB
+#define BUFFER_SIZE 8192          // 8KB
 #define MAX_MESSAGE_SIZE 1048576  // 1MB
 
 // Size used when allocating memory

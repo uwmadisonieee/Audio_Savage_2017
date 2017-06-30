@@ -9,11 +9,11 @@
   which is the part that gets sent back to client
  */
 void* httpHandle(http_client* http_config) {
-  
+
   int content_length;
   int header_offset;
   int header_length;
-          
+
   // status = callApiRoute(&request_HTTP, &response_HTTP, route, (http_t*)config);
   // Not a API route, checking for file
       
@@ -41,9 +41,10 @@ void* httpHandle(http_client* http_config) {
 	
     // offset where header is from start of buffer
     header_offset = MAX_RESPONSE_SIZE - content_length - header_length;
-    
+
+    memcpy(http_config->response_HTTP + header_offset, http_config->response_header, header_length);
   }
-      
+
   // api was called
   //sprintf(response_HTTP, "HTTP/1.1 200 OK\r\nCache-Control: no-cache, private\r\nContent-Length: 11\r\nContent-Type: application/json\r\nDate: Sat, 24 Jun 2017 05:29:07\r\n\r\n{\"test\":42}\r\n");
   //header_length = strlen(response_HTTP);
@@ -54,10 +55,10 @@ void* httpHandle(http_client* http_config) {
   //}
   
   send(http_config->socket_id, http_config->response_HTTP + header_offset, header_length + content_length, 0);
-  
+
   close(http_config->socket_id);
 
-  free(http_config);
+  free(http_config->header);
     
 return NULL;
 }
@@ -78,7 +79,7 @@ int getFileContent(char* relative_path, char** return_body, int length) {
   file_ext = strrchr(relative_path, PERIOD);
 
   if (NULL == file_ext) {
-    return printError("ERROR: getFileContent - no file extension\n", -1);
+    return printError("--SERVER-- ERROR: getFileContent - no file extension\n", -1);
   }
 
   // Only opens as text file if one of accepted text file types
@@ -91,7 +92,7 @@ int getFileContent(char* relative_path, char** return_body, int length) {
   }
   
   if (file_p == NULL) {
-    return printError("ERROR: getFileContent - can't open file\n", -1);
+    return printError("--SERVER-- ERROR: getFileContent - can't open file\n", -1);
   }
   
   // gets length of file and resets
@@ -100,7 +101,7 @@ int getFileContent(char* relative_path, char** return_body, int length) {
   fseek(file_p, 0, SEEK_SET);
   
   if (content_length > length) {
-    return printError("ERROR: getFileContent - File to large\n", -1);
+    return printError("--SERVER-- ERROR: getFileContent - File to large\n", -1);
   } else {
     front_offset = length - content_length;
   }

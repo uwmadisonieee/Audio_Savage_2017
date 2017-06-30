@@ -13,7 +13,7 @@ void* wsHandle(void* client_arg) {
   client->thread_id = pthread_self();
 
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-  
+
   // first send handshake
   int memlen = 0;
   int length = 0;
@@ -33,7 +33,7 @@ void* wsHandle(void* client_arg) {
   response = getMemoryChar("", length);
 		
   if (response == NULL) {
-    printf("ERROR: Allocating response ws\n");
+    printf("--SERVER-- ERROR: Allocating response ws\n");
   }
 	
   memcpy(response + memlen, ACCEPT_HEADER_V3, ACCEPT_HEADER_V3_LEN);
@@ -60,10 +60,8 @@ void* wsHandle(void* client_arg) {
   memcpy(response + memlen, "\r\n\r\n", 4);
   memlen += 4;
 
-  printf("Server responds with the following headers:\n%s\n", response);
-
   if (memlen != length) {
-    printf("ERROR: We've fucked the counting up!\n");
+    printf("--SERVER-- ERROR: We've fucked the counting up!\n");
   }
 
   // send handshake response
@@ -77,7 +75,7 @@ void* wsHandle(void* client_arg) {
   listAdd(list, client);
   pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
   
-  printf("Client added like a boss!\n");
+  printf("--SERVER-- Client %s was added like... a boss!\n", client->client_ip);
 
   // loop sending messages back and forth until close
   while (1) {
@@ -86,8 +84,8 @@ void* wsHandle(void* client_arg) {
     }
 
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-    //listMulticastAll(list, client->message);
-    listMulticast(list, client);
+    listMulticastAll(list, client->message);
+    //listMulticast(list, client);
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
     if (client->message != NULL) {
@@ -101,7 +99,7 @@ void* wsHandle(void* client_arg) {
   }
 
   // clean up websocket
-  printf("Shutting client down\n");
+  printf("--SERVER-- Client %s decided it was to good and left\n", client->client_ip);
 
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
   listRemove(list, client);
@@ -118,17 +116,16 @@ int communicate(ws_client* node, char *next, uint64_t next_len) {
   node->message = messageNew();
 
   if (node == NULL) {
-    return printError("ERROR: The client was not available anymore", -1);
+    return printError("--SERVER-- ERROR: The client was not available anymore", -1);
   }
 
   if (node->header == NULL) {
-    return printError("ERROR: The header was not available anymore", -1);
+    return printError("--SERVER-- ERROR: The header was not available anymore", -1);
   }
 
   // Receiving and decoding the message.
   do {
-    memset(buffer, '\0', BUFFER_SIZE);
-				
+    memset(buffer, '\0', BUFFER_SIZE);			
     memcpy(buffer, next, next_len);
 
     // If we end in this case, we have not got enough of the frame to
@@ -138,7 +135,7 @@ int communicate(ws_client* node, char *next, uint64_t next_len) {
       
       if ((buffer_length = recv(node->socket_id, (buffer+next_len), 
 				(BUFFER_SIZE-next_len), 0)) <= 0) {
-	return printError("ERROR: didn't receive any message from client", -1);
+	return printError("--SERVER-- ERROR: didn't receive any message from client", -1);
       }
     }
 
@@ -161,19 +158,14 @@ int communicate(ws_client* node, char *next, uint64_t next_len) {
   // Checking which type of frame the client has sent.
   if (node->message->opcode[0] == '\x88' || node->message->opcode[0] == '\x08') {
     // CLOSE: client wants to close connection, so we do.
-    printf("Client:\n"
-	   "\tSocket: %d\n"
-	   "\tAddress: %s\n"
-	   "reports that he is shutting down.\n\n", node->socket_id, 
-	   (char *) node->client_ip);		
     return -2;
 
   } else if (node->message->opcode[0] == '\x8A' || node->message->opcode[0] == '\x0A') {
-    return printError("ERROR Pong arrived", -1);
+    return printError("--SERVER-- ERROR Pong arrived", -1);
   } else if (node->message->opcode[0] == '\x89' || node->message->opcode[0] == '\x09') {
-    return printError("ERROR Ping arrived", -1);
+    return printError("--SERVER-- ERROR Ping arrived", -1);
   } else if (node->message->opcode[0] == '\x02' || node->message->opcode[0] == '\x82') {
-    return printError("ERROR Binary data arrived", -1);
+    return printError("--SERVER-- ERROR Binary data arrived", -1);
   } else if (node->message->opcode[0] == '\x01' || node->message->opcode[0] == '\x81') {
 
     // encode the message to make it ready to be send to all others
@@ -183,8 +175,7 @@ int communicate(ws_client* node, char *next, uint64_t next_len) {
     }
     
   } else {
-    printf("Something very strange happened, received opcode: 0x%x\n\n", 
-	   node->message->opcode[0]);
+    printf("--SERVER-- Something very strange happened, received opcode: 0x%x\n\n", node->message->opcode[0]);
     return -1;
   }  
 
@@ -194,11 +185,9 @@ int communicate(ws_client* node, char *next, uint64_t next_len) {
 uint64_t ntohl64(uint64_t value) {
   static const int num = 42;
 
-  /**
-   * If these check is true, the system is using the little endian 
-   * convention. Else the system is using the big endian convention, which
-   * means that we do not have to represent our integers in another way.
-   */
+  // If these check is true, the system is using the little endian 
+  // convention. Else the system is using the big endian convention, which
+  //  means that we do not have to represent our integers in another way.
   if (*(char *)&num == 42) {
     const uint32_t high = (uint32_t)(value >> 32);
     const uint32_t low = (uint32_t)(value & 0xFFFFFFFF);
@@ -218,7 +207,7 @@ int encodeMessage(ws_message* message) {
     length += 2;
     message->enc = (char*) malloc(sizeof(char) * length);
     if (NULL == message->enc) {
-      return printError("ERROR: Couldn't allocate memory for message 001", -1);
+      return printError("--SERVER-- ERROR: Couldn't allocate memory for message 001", -1);
     }
     
     message->enc[0] = '\x81';
@@ -229,7 +218,7 @@ int encodeMessage(ws_message* message) {
     length += 4;
     message->enc = (char*) malloc(sizeof(char) * length);
     if (NULL == message->enc) {
-      return printError("ERROR: Couldn't allocate memory for message 002", -1);
+      return printError("--SERVER-- ERROR: Couldn't allocate memory for message 002", -1);
     }
     
     message->enc[0] = '\x81';
@@ -242,7 +231,7 @@ int encodeMessage(ws_message* message) {
     length += 10;
     message->enc = (char*) malloc(sizeof(char) * length);
     if (message->enc == NULL) {
-      return printError("ERROR: Couldn't allocate memory for message 003", -1);
+      return printError("--SERVER-- ERROR: Couldn't allocate memory for message 003", -1);
     }
     message->enc[0] = '\x81';
     message->enc[1] = 127;
@@ -271,7 +260,7 @@ int parseMessage(char* buffer, uint64_t buffer_length, ws_client* node) {
   length = buffer[1] & 0x7f;
 
   if (!has_mask) {
-    printf("ERROR Message didn't have masked data, received: 0x%x\n", buffer[1]);
+    printf("--SERVER-- ERROR Message didn't have masked data, received: 0x%x\n", buffer[1]);
     return -1;
   }
 
@@ -310,21 +299,21 @@ int parseMessage(char* buffer, uint64_t buffer_length, ws_client* node) {
     skip = 14;
     memcpy(&message->mask, buffer + 10, sizeof(message->mask));
   } else {
-    printf("Obscure length received from client: %d\n\n", length);
+    printf("--SERVER-- Obscure length received from client: %d\n\n", length);
     return -1;	
   }
 
   // If the message length is greater that our MAXMESSAGE constant
   // we skip the message and close the connection
   if (message->len > MAX_MESSAGE_SIZE) {
-    return printError("Message received was bigger than MAXMESSAGE", -1);
+    return printError("--SERVER-- Message received was bigger than MAX_MESSAGE_SIZE", -1);
   }
 	
   // Allocating memory to hold the message sent from the client.
   // We can do this because we now know the actual length ofr the message.
   message->msg = (char*) malloc(sizeof(char) * (message->len + 1));
   if (message->msg == NULL) {
-    return printError("ERROR: Couldn't allocate memory 005\n", -1);
+    return printError("--SERVER-- ERROR: Couldn't allocate memory 005\n", -1);
   }
   memset(message->msg, '\0', (message->len + 1));
 
@@ -336,7 +325,7 @@ int parseMessage(char* buffer, uint64_t buffer_length, ws_client* node) {
     uint64_t next_len = buf_len - message->len;
     message->next = (char*) malloc(next_len);
     if (message->next == NULL) {
-      return printError("ERROR: Couldn't allocate memory 006\n", -1);
+      return printError("--SERVER-- ERROR: Couldn't allocate memory 006\n", -1);
     }
     memset(message->next, '\0', next_len);
     memcpy(message->next, buffer + (message->len+skip), next_len);
@@ -351,7 +340,7 @@ int parseMessage(char* buffer, uint64_t buffer_length, ws_client* node) {
   // We have not yet received the whole message, and must continue reading new data from the client
   if (message_length < message->len) {
     if ((remaining_length = getRemainingMessage(node, message_length)) == 0) {
-      return printError("ERROR: Closed Policy", -1);
+      return printError("--SERVER-- ERROR: Closed Policy", -1);
     }
   }
 
@@ -360,7 +349,7 @@ int parseMessage(char* buffer, uint64_t buffer_length, ws_client* node) {
   // If this is true, our receival of the message has gone wrong
   // and we have no other choice than closing the connection.
   if (message_length != message->len) {
-    printf("Message does not fit. Expected: %d but got %d\n\n", 
+    printf("--SERVER-- Message does not fit. Expected: %d but got %d\n\n", 
 	   (int) message->len, (int) message_length);
     return -1;
   }
@@ -386,11 +375,11 @@ uint64_t getRemainingMessage(ws_client* node, uint64_t msg_length) {
 	
     // Receive new chunk of the message.
     if ((buffer_length = recv(node->socket_id, buffer, BUFFER_SIZE, 0)) <= 0) {
-      printf("Didn't receive anything from remaining part of message. %d"
+      printf("--SERVER-- Didn't receive anything from remaining part of message. %d"
 	     "\n\n", buffer_length);
       return 0;	
     }
-
+    
     // The overall length of the message received. Because the recv call
     // eventually will merge messages together we have to have a check
     // whether the overall length we received is greater than the expected
@@ -405,7 +394,7 @@ uint64_t getRemainingMessage(ws_client* node, uint64_t msg_length) {
       uint64_t next_len = final_length-message->len;
       message->next = (char*) malloc(sizeof(char)*next_len);
       if (message->next == NULL) {
-	return printError("ERROR: Couldn't allocate memory for message 100\n", 0);
+	return printError("--SERVER-- ERROR: Couldn't allocate memory for message 100\n", 0);
       }
       
       memset(message->next, '\0', next_len);

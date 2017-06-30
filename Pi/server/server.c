@@ -10,7 +10,7 @@ int status; // used to check status of c functions return values
 int server(server_t* config) {
 
   if (config->port <= 1024 || config->port >= 65536) {
-    return printError("Port must be between 1024 and 65536\n", -1);
+    return printError("--SERVER-- ERROR: Port must be between 1024 and 65536\n", -1);
   }
 
   // creates new WS list
@@ -38,7 +38,8 @@ void* serverDaemon(void *config) {
   
   int port = ((server_t*)config)->port;
   int on = 1;
-  
+
+  http_client* http_config = NULL;
   char* request_HTTP = malloc(MAX_REQUEST_SIZE);
   int   request_size;
 
@@ -66,17 +67,14 @@ void* serverDaemon(void *config) {
   // 0 will have the OS pick TCP for SOCK_STREAM
   socket_fp = socket(AF_INET, SOCK_STREAM, 0);
   if (socket_fp < 0) {
-    printf("ERROR: Opening socket\n");
+    printf("--SERVER-- ERROR: Trying to Opening socket\n");
     pthread_exit(NULL);
-  }
-  else {
-    printf("TCP Socket Created!\n");
   }
 
   // This prevents the TIME_WAIT socket error on reloading
   status = setsockopt(socket_fp, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
   if (status < 0) {
-    printf("ERROR: setting SOL_SOCKET\n");
+    printf("--SERVER-- ERROR: setting SOL_SOCKET\n");
     pthread_exit(NULL);
   }
 
@@ -86,31 +84,29 @@ void* serverDaemon(void *config) {
   // checks for TIME_WAIT socket
   // when daemon is closed there is a delay to make sure all TCP data is propagated
   if (status < 0) {
-    printf("ERROR opening socket: %d , possible TIME_WAIT\n", status);
-    printf("USE: netstat -ant|grep %d to find out\n", port);
+    printf("--SERVER-- ERROR opening socket: %d , possible TIME_WAIT\n", status);
+    printf("\tUSE: netstat -ant|grep %d to find out\n", port);
     pthread_exit(NULL);
-  } else {
-    printf("Socket Binded!\n");
   }
 
   // start listening, allowing a queue of up to 10 pending connection
   listen(socket_fp, 10);
-  printf("Socket Listening on port %d!\n\n", port);
+  printf("--SERVER-- Ready on port %d!\n\n", port);
 
   //--------------------------------//
   //         Server Polling         //
   //--------------------------------//
+
+  //blocking for response
+  socket_con = accept(socket_fp, (struct sockaddr *)&client, &socket_size);
   
   while(1) {
-
-    //blocking for response
-    socket_con = accept(socket_fp, (struct sockaddr *)&client, &socket_size);
 
     // get IP
     temp = (char*) inet_ntoa(client.sin_addr); // gets address
     client_ip = (char*) malloc(sizeof(char)*(strlen(temp)+1));
     if (NULL == client_ip) {
-      printf("ERROR: Allocating client_ip\n");
+      printf("--SERVER-- ERROR: Allocating client_ip\n");
       exit(1); // TODO
     }
     // extra \0 to have it be a string with ending char
@@ -120,27 +116,33 @@ void* serverDaemon(void *config) {
     // get request
     request_size = recv(socket_con, request_HTTP, MAX_REQUEST_SIZE, 0);
     if (request_size <= 0) {
-      printf("WAIT! Request Size was %d\n", request_size);
+      printf("--SERVER-- Request Size was %d\n", request_size);
     }
-    
+
     request_header* header = parseHeader(&request_HTTP);
     if (NULL == header) {
-      printf("Couldn't allocate header!\n");
+      printf("--SERVER-- Couldn't allocate header!\n");
     }
 
     if ( HTTP == header->type ) {
-      http_client* http_config = httpClientNew(socket_con, client_ip);
+      // http_client created only once, can update if not first time
+      if (NULL == http_config) {
+	http_config = httpClientNew(socket_con, client_ip);
+      } else {
+	http_config->socket_id = socket_con;
+	http_config->client_ip = client_ip;
+      }
+      // we clear the request_header on each send() though
       http_config->header = header;
-      
+
       httpHandle(http_config);
       
     } else if ( WEBSOCKET == header->type ) {
       
       // create ws_client to pass across the info
-
       ws_client* ws_node = wsClientNew(socket_con, client_ip);
       ws_node->header = header;
-      
+
       // opens new thread to keep communication with socket
       status = pthread_create(&ws_thread,
 			      NULL,
@@ -148,7 +150,7 @@ void* serverDaemon(void *config) {
 			      (void *)ws_node);
 
       if (status < 0) {
-	printf("ERROR: Are you feeling it now Mr Krabs?\n");
+	printf("--SERVER-- ERROR: Are you feeling it now Mr Krabs?\n");
       }
 
       pthread_detach(ws_thread);
@@ -166,28 +168,35 @@ request_header* parseHeader(char** request) {
 
   // Defaults are set which we used to infer it wasn't found in header
   request_header* header = headerNew();
-
+  if (NULL == header) {
+    printf("--SERVER-- Failed to allocate header in parsing");
+  }  
+  
   char* token = strtok(*request, "\r\n");
   char* route;
   int route_length = 0;
   
   if (token != NULL) {
-
+    
     // first check for Verb
     if ( 0 == strncasecmp("GET /", token, 5)) {
       header->verb = GET;
     } else if ( 0 == strncasecmp("POST /", token, 6)) {
       header->verb = POST;
     } else {
-      return printErrorNull("Not Get or Post");
+      return printErrorNull("--SERVER-- Not Get or Post");
     }
-
+    
     route = strstr(*request, "/");
     // finds where route path ends
     while (route[route_length] != ' ') {
       route_length++;
     }
-    strncpy(header->route, route, route_length);
+
+    // allocates header and makes sure to add \0 to end string
+    header->route = (char*)malloc(route_length+1);
+    memcpy(header->route, route, route_length);
+    header->route[route_length] = '\0';
     
     // time to loop through header lines
     while ( token != NULL ) {
@@ -203,7 +212,7 @@ request_header* parseHeader(char** request) {
       
       token = strtok(NULL, "\r\n");
     }
-
+    
     // time to validate and determine what we were requested
     if ( 0 == header->ws_version ) {
       // HTTP
@@ -216,20 +225,20 @@ request_header* parseHeader(char** request) {
 	   (NULL != header->upgrade) && (NULL != header->ws_key)) {
 	// websocket RFC6455
 	header->type = WEBSOCKET;
-
+	    
 	// Need to create SHA1 key
 	getSHA(header);
 	
 	return header;
 
       }	else {
-	return printErrorNull("Need Socket upgrade and key in header");
+	return printErrorNull("--SERVER-- Need Socket upgrade and key in header");
       }
     } else {
-      return printErrorNull("Only RFC6455 Websockets supported");
+      return printErrorNull("--SERVER-- Only RFC6455 Websockets supported");
     }	
   } else {
-    return printErrorNull("Parse Header Error!");
+    return printErrorNull("--SERVER-- Parse Header Error!");
   }  
 }
 
@@ -265,12 +274,12 @@ void getSHA(request_header* header) {
   }
 
   if (base64_encode_alloc((const char *) sha1Key, 20, &acceptKey) == 0) {
-    printf("ERROR: The input length was greater than the output length\n");
+    printf("--SERVER-- ERROR: The input length was greater than the output length\n");
     return;
   }
 
   if (acceptKey == NULL) {
-    printf("ERROR: Couldn't allocate memory.\n");
+    printf("--SERVER-- ERROR: Couldn't allocate memory.\n");
     return;
   }
 

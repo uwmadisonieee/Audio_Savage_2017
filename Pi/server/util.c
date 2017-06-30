@@ -323,6 +323,11 @@ void headerFree(request_header* header) {
     header->accept = NULL;
   }
   
+  if (NULL != header->route) {
+    free(header->route);
+    header->route = NULL;
+  }
+  
   /* if (NULL != header->ws_key) {
     free(header->ws_key);
     header->ws_key = NULL;
