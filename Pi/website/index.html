@@ -8,13 +8,21 @@
     <h1>wubalubadubdub</h1>
   </body>
 
-  <script src="jquery.min.js"> </script>
+<!--  <script src="jquery.min.js"> </script> -->
     
-  <script> 
-  	window.addEventListener('keydown', function(event) { 
-  		$.get( "/key/" + event.keyCode, function( data ) {
-		  console.log(data);
-		});
-  	})
+  <script>
+    var ws = new WebSocket('ws://' + location.host);
+
+    ws.onmessage = function(event) {
+      console.log(event.data);
+    }
+    
+    window.addEventListener('keydown', function(event) {
+      if (event.keyCode == 32) {
+        //spacebar
+        console.log("Sending ws message");
+        ws.send("TEST");
+      } 
+    });
   </script>
 </html>

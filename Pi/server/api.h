@@ -1,10 +1,6 @@
 #ifndef __API_H__
 #define __API_H__
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include "util.h"
 
 // takes route and finds where to route it
