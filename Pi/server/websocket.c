@@ -1,6 +1,6 @@
 #include "websocket.h"
 
-extern ws_list* list;
+extern server_t* server;
 
 void* wsHandle(void* client_arg) {
 
@@ -15,6 +15,7 @@ void* wsHandle(void* client_arg) {
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
   // first send handshake
+  int status = 0;
   int memlen = 0;
   int length = 0;
   char* response = NULL;
@@ -72,7 +73,7 @@ void* wsHandle(void* client_arg) {
   }
   
   // add new connection to list
-  listAdd(list, client);
+  listAdd(server->list, client);
   pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
   
   printf("--SERVER-- Client %s was added like... a boss!\n", client->client_ip);
@@ -84,8 +85,17 @@ void* wsHandle(void* client_arg) {
     }
 
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-    listMulticastAll(list, client->message);
-    //listMulticast(list, client);
+    listMulticast(server->list, client);
+
+    // set keypress back
+    if (strncmp(client->message->msg, "key:", 4) == 0) {
+      status = atoi(client->message->msg + 4);
+      // check if number or letter pressed
+      if (status >= 48 && status <= 90) {
+	server->onKeyPress((char)status);
+      }
+    }
+    
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
     if (client->message != NULL) {
@@ -102,7 +112,7 @@ void* wsHandle(void* client_arg) {
   printf("--SERVER-- Client %s decided it was to good and left\n", client->client_ip);
 
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
-  listRemove(list, client);
+  listRemove(server->list, client);
   pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
   pthread_exit((void *) EXIT_SUCCESS);

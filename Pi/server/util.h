@@ -102,6 +102,7 @@ typedef struct {
 // Configuration info sent from server
 typedef struct server_t {
   int          port;
+  ws_list*     list;
   callback     response;
   callbackChar onKeyPress;
 } server_t;

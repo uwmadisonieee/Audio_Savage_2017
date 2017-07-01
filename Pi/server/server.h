@@ -5,15 +5,17 @@
 #include "http.h"
 #include "websocket.h"
 
+// sets default server_t and returns it back
+server_t* setupSever(void);
+
 // Call to spin up an HTTP sever
-// Returns 0 on success
-int server(server_t *config);
+void startServer(void);
 
 // Used to broadcast to all websockets
-void broadcast(char* message);
+void broadcast(double temperature);
 
 // Creates a new thread to run the Daemon server
-void* serverDaemon(void *config);
+void* serverDaemon();
 
 // takes request and parses header to struct
 // returns header if valid, NULL if error

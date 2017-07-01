@@ -4,7 +4,7 @@
     <title>IEEE Audio Savage</title>    
   </head>
   <body>
-    <img src="images/IEEE_logo.png"/>
+    <img style="width:100px" src="images/IEEE_logo.png"/>
     <h1>wubalubadubdub</h1>
   </body>
 
@@ -14,15 +14,21 @@
     var ws = new WebSocket('ws://' + location.host);
 
     ws.onmessage = function(event) {
-      console.log(event.data);
+      var message = JSON.parse(event.data);
+
+      switch(message.type) {
+        case "temperature":
+          console.log("temperature = " + message.value);
+          break;
+        default:
+          console.log("Invalid data sent");
+          console.log(message);
+      }
+
     }
     
     window.addEventListener('keydown', function(event) {
-      if (event.keyCode == 32) {
-        //spacebar
-        console.log("Sending ws message");
-        ws.send("TEST");
-      } 
+      ws.send("key:" + event.keyCode);
     });
   </script>
 </html>

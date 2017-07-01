@@ -71,10 +71,15 @@ int getFileContent(char* relative_path, char** return_body, int length) {
   char  file_path[512];
   char*  file_ext;
   const char PERIOD = '.';
+
+  // make default site index.html if no path set
+  if (1 == strlen(relative_path) && strncmp(relative_path, "/", 1) == 0) {
+    strcat(relative_path, "index.html");
+  }
   
   strcpy(file_path, WEBSITE_FOLDER);
   strcat(file_path, relative_path);  
-
+  
   // need to decide if file is text or binary
   file_ext = strrchr(relative_path, PERIOD);
 

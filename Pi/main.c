@@ -8,28 +8,23 @@ void onKeyPress( char key ) {
 
 int main ( int argc, char* argv[] ) {
 
-  int status;
-  server_t server_config;
-  char* data;
   FILE* temperature_file;
   double current_temperature;
+  char* thermal_path = "/sys/class/thermal/thermal_zone0/temp";
+
+  server_t* server_config = (server_t*)setupServer();
   
   // set port of server
-  server_config.port = 8000;
+  server_config->port = 8000;
   
   // set function to receive a key press
-  server_config.onKeyPress = onKeyPress;
+  server_config->onKeyPress = onKeyPress;
 
   // start server
-  status = server(&server_config);
-
-  if (status < 0) {
-    printf("http Server didn't start up correctly\n");
-    exit(1);
-  }
-
+  startServer();
+ 
   // Get temperature file from linux file system
-  temperature_file = fopen("/sys/class/thermal/thermal_zone0/temp", "r");
+  temperature_file = fopen(thermal_path, "r");
   if (NULL == temperature_file) {
     printf("No temperature file found on machine\n");
     exit(1);
@@ -40,7 +35,7 @@ int main ( int argc, char* argv[] ) {
     fscanf(temperature_file, "%lf", &current_temperature);
     current_temperature /= 1000;
     broadcast(current_temperature);
-    rewind(temperature_file);
+    freopen(thermal_path, "r", temperature_file);
     sleep(1); // waits 1 second before probing again
   }
 }

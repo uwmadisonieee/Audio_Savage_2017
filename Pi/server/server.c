@@ -1,42 +1,78 @@
 #include "server.h"
 
 // global?
-ws_list* list;
+server_t* server;
 pthread_t server_thread;
 pthread_t ws_thread;
 
 int status; // used to check status of c functions return values
 
-int server(server_t* config) {
+server_t* setupServer(void) {
+  server = (server_t*)malloc(sizeof(server_t));
+  server->port = 0;
+  server->response = NULL;
+  server->onKeyPress = NULL;
+  return server;
+}
 
-  if (config->port <= 1024 || config->port >= 65536) {
-    return printError("--SERVER-- ERROR: Port must be between 1024 and 65536\n", -1);
+void startServer(void) {
+
+  if (server->port <= 1024 || server->port >= 65536) {
+    printf("--SERVER-- ERROR: Port must be between 1024 and 65536\n");
+    exit(1);
   }
 
   // creates new WS list
-  list = listNew();
-  
-  status = pthread_create(&server_thread,
-			  NULL,
-			  serverDaemon,
-			  (void *)config);
-  
-  // Daemon tread_create status is what determines success
-  return status;
+  server->list = listNew();
+
+  status = pthread_create(&server_thread, NULL, serverDaemon, NULL);
+
+  if (status < 0) {
+    printf("--SERVER-- ERROR: Server didn't start up correctly\n");
+    exit(1);
+  }
+
 }
 
-void broadcast(char* message)
+void broadcast(double temperature)
 {
-  //todo
+  // TODO cleaner and more effient way
+  char temperature_string[50];
+  sprintf(temperature_string, "{\"type\":\"temperature\",\"value\":%6.3f}", temperature);
+  
+  ws_message *m = messageNew();
+  m->len = strlen(temperature_string);
+					
+  char *temp = malloc( sizeof(char)*(m->len+1) );
+  if (temp == NULL) {
+    raise(SIGINT);		
+    return;
+  }
+  
+  memset(temp, '\0', (m->len+1));
+  memcpy(temp, temperature_string, m->len);
+  m->msg = temp;
+  temp = NULL;
+
+  if ( (status = encodeMessage(m)) != 0) {
+    messageFree(m);
+    free(m);
+    raise(SIGINT);
+    return;
+  }
+
+  listMulticastAll(server->list, m);
+  messageFree(m);
+  free(m);	   
 }
 
-void* serverDaemon(void *config) {
-
+void* serverDaemon() {
+  
   //--------------------------------//
   //         Variable Setup         //
   //--------------------------------//
   
-  int port = ((server_t*)config)->port;
+  int port = server->port;
   int on = 1;
 
   http_client* http_config = NULL;
