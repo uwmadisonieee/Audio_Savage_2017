@@ -10,7 +10,7 @@ int status; // used to check status of c functions return values
 server_t* setupServer(void) {
   server = (server_t*)malloc(sizeof(server_t));
   server->port = 0;
-  server->response = NULL;
+  server->onSongSelect = NULL;
   server->onKeyPress = NULL;
   return server;
 }
@@ -34,36 +34,46 @@ void startServer(void) {
 
 }
 
-void broadcast(double temperature)
+void broadcastNumber(char* type, double value)
 {
-  // TODO cleaner and more effient way
-  char temperature_string[50];
-  sprintf(temperature_string, "{\"type\":\"temperature\",\"value\":%6.3f}", temperature);
-  
-  ws_message *m = messageNew();
-  m->len = strlen(temperature_string);
+  char broadcast_string[21 + strlen(type) + 9];
+  sprintf(broadcast_string, "{\"type\":\"%s\",\"value\":%9.3f}", type, value);
+  broadcast(broadcast_string);
+}
+
+void broadcastString(char* type, char* value)
+{
+  char broadcast_string[23 + strlen(type) + strlen(value)];
+  sprintf(broadcast_string, "{\"type\":\"%s\",\"value\":\"%s\"}", type, value);
+  broadcast(broadcast_string);
+}
+
+void broadcast(char* broadcast_string)
+{
+  ws_message *message = messageNew();
+  message->len = strlen(broadcast_string);
 					
-  char *temp = malloc( sizeof(char)*(m->len+1) );
+  char *temp = malloc( sizeof(char)*(message->len+1) );
   if (temp == NULL) {
     raise(SIGINT);		
     return;
   }
   
-  memset(temp, '\0', (m->len+1));
-  memcpy(temp, temperature_string, m->len);
-  m->msg = temp;
+  memset(temp, '\0', (message->len+1));
+  memcpy(temp, broadcast_string, message->len);
+  message->msg = temp;
   temp = NULL;
 
-  if ( (status = encodeMessage(m)) != 0) {
-    messageFree(m);
-    free(m);
+  if ( (status = encodeMessage(message)) != 0) {
+    messageFree(message);
+    free(message);
     raise(SIGINT);
     return;
   }
 
-  listMulticastAll(server->list, m);
-  messageFree(m);
-  free(m);	   
+  listMulticastAll(server->list, message);
+  messageFree(message);
+  free(message);	   
 }
 
 void* serverDaemon() {

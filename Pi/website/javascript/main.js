@@ -5,14 +5,14 @@ var ws = new WebSocket('ws://' + location.host);
 ws.onmessage = function(event) {
 
   var message = JSON.parse(event.data);
-
+  console.log(message);    
   switch(message.type) {
     case "temperature":
       document.getElementById("degreeValue").innerHTML = message.value;
       drawNewTempBox(parseInt(message.value));
       break;
     default:
-      console.log("Invalid data sent");
+      console.log("No case for data");
       console.log(message);
   }
 
@@ -22,6 +22,11 @@ ws.onmessage = function(event) {
 window.addEventListener('keydown', function(event) {
   ws.send("key:" + event.keyCode);
 });
+
+// sends song back when button pressed
+function sendSong(file) {
+  ws.send("song:" + file);
+}
 
 // Setup of canvas temp box
 var tempBox = document.getElementById("tempBox");
@@ -37,5 +42,3 @@ function drawNewTempBox(newTemp) {
   tempBoxCtx.fillStyle="#FF0000";
   tempBoxCtx.fillRect(0,relativeHeight, tempBox.width, tempBox.height);
 }
-
-

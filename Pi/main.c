@@ -6,6 +6,10 @@ void onKeyPress( char key ) {
   printf("Key Pressed: %c\n", key);
 }
 
+void newSong( char* song ) {
+  printf("New song selected: %s\n", song);
+}
+
 int main ( int argc, char* argv[] ) {
 
   FILE* temperature_file;
@@ -19,6 +23,9 @@ int main ( int argc, char* argv[] ) {
   
   // set function to receive a key press
   server_config->onKeyPress = onKeyPress;
+
+  // set function to receive a song selection
+  server_config->onSongSelect = newSong;
 
   // start server
   startServer();
@@ -34,7 +41,7 @@ int main ( int argc, char* argv[] ) {
   while(1){
     fscanf(temperature_file, "%lf", &current_temperature);
     current_temperature /= 1000;
-    broadcast(current_temperature);
+    broadcastNumber("temperature", current_temperature);
     freopen(thermal_path, "r", temperature_file);
     sleep(1); // waits 1 second before probing again
   }

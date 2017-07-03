@@ -5,17 +5,32 @@
 #include "http.h"
 #include "websocket.h"
 
+////////////////////////////////////
+/////////// Server Methods /////////
+////////////////////////////////////
+
 // sets default server_t and returns it back
 server_t* setupSever(void);
 
 // Call to spin up an HTTP sever
 void startServer(void);
 
-// Used to broadcast to all websockets
-void broadcast(double temperature);
+// Used to broadcast to all websockets a number as a double
+void broadcastNumber(char* type, double value);
+
+// overload method to broadcast string
+void broadcastString(char* type, char* value);
+
+//////////////////////////////////////
+/////////  Internal Helpers //////////
+//////////////////////////////////////
+// TODO make these static
 
 // Creates a new thread to run the Daemon server
 void* serverDaemon();
+
+// sends a formated string to all sockets
+void broadcast(char* broadcast_string);
 
 // takes request and parses header to struct
 // returns header if valid, NULL if error

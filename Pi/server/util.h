@@ -29,10 +29,11 @@
 #define MAX_HEADER_SIZE   20000   // 20kb
 #define MAX_REQUEST_SIZE  500000  // 500KB
 
-// function callback types
-typedef void (*callback)(char*);
+// function callbacks of different arg types
+typedef void (*callbackStr)(char*);
 typedef void (*callbackChar)(char);
-typedef void (*callbackInt)(int*);
+typedef void (*callbackInt)(int);
+typedef void (*callbackDouble)(double);
 
 typedef enum {
   GET,
@@ -103,7 +104,7 @@ typedef struct {
 typedef struct server_t {
   int          port;
   ws_list*     list;
-  callback     response;
+  callbackStr  onSongSelect;
   callbackChar onKeyPress;
 } server_t;
 

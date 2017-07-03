@@ -15,7 +15,6 @@ void* wsHandle(void* client_arg) {
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
   // first send handshake
-  int status = 0;
   int memlen = 0;
   int length = 0;
   char* response = NULL;
@@ -86,16 +85,7 @@ void* wsHandle(void* client_arg) {
 
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
     listMulticast(server->list, client);
-
-    // set keypress back
-    if (strncmp(client->message->msg, "key:", 4) == 0) {
-      status = atoi(client->message->msg + 4);
-      // check if number or letter pressed
-      if (status >= 48 && status <= 90) {
-	server->onKeyPress((char)status);
-      }
-    }
-    
+    callbackHandler(client->message->msg);    
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
     if (client->message != NULL) {
@@ -420,4 +410,21 @@ uint64_t getRemainingMessage(ws_client* node, uint64_t msg_length) {
   } while( (msg_length + remaining_length) < message->len );
 
   return remaining_length;
+}
+
+void callbackHandler(char* message) {
+  int status;
+  
+  if (strncmp(message, "key:", 4) == 0) {  // onKeyPress
+    status = atoi(message + 4);
+    // check if number or letter pressed
+    if (status >= 48 && status <= 90) {
+      server->onKeyPress((char)status);
+    }
+  } else if (strncmp(message, "song:", 5) == 0) { // onSongSelect
+    //make sure a value is after it
+    if (strlen(message) > 5) {
+      server->onSongSelect(message + 5);
+    }
+  }
 }

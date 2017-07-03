@@ -33,4 +33,7 @@ int parseMessage(char* buffer, uint64_t buffer_length, ws_client* node);
 // And we are dealing with the RFC6455 convention.
 uint64_t getRemainingMessage(ws_client* node, uint64_t msg_length);
 
+// used to take any message and figure out where to send callback
+void callbackHandler(char* message);
+
 #endif
