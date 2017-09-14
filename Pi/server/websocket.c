@@ -412,19 +412,30 @@ uint64_t getRemainingMessage(ws_client* node, uint64_t msg_length) {
   return remaining_length;
 }
 
+// TODO - Cleaner and more robust way of handling request
 void callbackHandler(char* message) {
   int status;
   
+  // always make sure a value is after each case
+
   if (strncmp(message, "key:", 4) == 0) {  // onKeyPress
-    status = atoi(message + 4);
-    // check if number or letter pressed
-    if (status >= 48 && status <= 90) {
-      server->onKeyPress((char)status);
+    if (strlen(message) > 4) {
+      status = atoi(message + 4);
+      // check if number or letter pressed
+      if (status >= 48 && status <= 90) {
+        server->onKeyPress((char)status);
+      }
     }
   } else if (strncmp(message, "song:", 5) == 0) { // onSongSelect
-    //make sure a value is after it
     if (strlen(message) > 5) {
       server->onSongSelect(message + 5);
+    }
+  } else if (strncmp(message, "gpio:", 4) == 0) { // onGPIO
+    if (strlen(message) > 5) {
+      status = atoi(message + 5);
+      if (status >= 0) {
+        server->onGPIO(status);
+      }
     }
   }
 }

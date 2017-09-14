@@ -2,10 +2,44 @@
 <html>
   <head>
     <title>IEEE Audio Savage</title>    
+    <link rel="stylesheet" type="text/css" href="style.css">
   </head>
   <body>
     <h1> Press a key to send back to Pi </h1>
+      
+    <div id="gpioRow">
+      <div class="switchContainer">
+        <text>GPIO 0</text>
+        <label class="switch">
+          <input type="checkbox" name="gpioSlider0" onchange="toggleGPIO(0)">
+          <span class="slider"></span>
+        </label>
+      </div>
 
+      <div class="switchContainer">
+        <text>GPIO 1</text>
+        <label class="switch">
+          <input type="checkbox" name="gpioSlider1" onchange="toggleGPIO(1)">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="switchContainer">
+        <text>GPIO 2</text>
+        <label class="switch">
+          <input type="checkbox" name="gpioSlider2" onchange="toggleGPIO(2)">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="switchContainer">
+        <text>GPIO 3</text>
+        <label class="switch">
+          <input type="checkbox" name="gpioSlider3" onchange="toggleGPIO(3)">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
     <hr>
 
     <h2>Current Temperature of Pi is <span id="degreeValue">---</span>&deg;C</h2>
@@ -20,4 +54,5 @@
   </body>
 
   <script src="javascript/main.js"></script>
+  <script src="javascript/gpio.js"></script>
 </html>

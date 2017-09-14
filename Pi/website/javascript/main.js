@@ -1,4 +1,5 @@
 // creates connection first
+// Global value across all files
 var ws = new WebSocket('ws://' + location.host);
 
 // decides what do when message arrives

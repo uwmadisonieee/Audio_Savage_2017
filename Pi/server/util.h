@@ -102,10 +102,11 @@ typedef struct {
 
 // Configuration info sent from server
 typedef struct server_t {
-  int          port;
-  ws_list*     list;
-  callbackStr  onSongSelect;
-  callbackChar onKeyPress;
+  int            port;
+  ws_list*       list;
+  callbackStr    onSongSelect;
+  callbackChar   onKeyPress;
+  callbackInt    onGPIO;
 } server_t;
 
 //////////////////////////////////////////
